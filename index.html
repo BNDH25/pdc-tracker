@@ -12,10 +12,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-MH0S9kUtdWKVphP4OrWDZyQscyhdMkWdpDPrttRygV4='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
 <style>
+@font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
+@font-face{font-family:"Barlow";font-weight:500;font-display:swap;src:url(fonts/barlow-500.woff) format("woff")}
+@font-face{font-family:"Barlow";font-weight:600;font-display:swap;src:url(fonts/barlow-600.woff) format("woff")}
+@font-face{font-family:"Barlow";font-weight:700;font-display:swap;src:url(fonts/barlow-700.woff) format("woff")}
 :root{
   --bg:#e9ecf1;--card:#f6f7f9;--card-hi:#ffffff;--well:#e3e7ed;--text:#141821;--muted:#6b7385;--line:rgba(15,23,42,.08);
   --hl:rgba(255,255,255,.95);--sh:rgba(15,23,42,.18);--sh-in:rgba(15,23,42,.16);--track:#dde2e9;
@@ -199,6 +203,20 @@ tr:last-child td{border-bottom:0}
 .safe{display:flex;align-items:center;gap:8px;margin-top:12px}
 .safe i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted)}
 .safe.ok i{background:#22c55e}.safe.ko i{background:#f59e0b}
+/* Sauvegarde : bandeau de rappel, fenêtre de confirmation, copies internes */
+.bkbar{display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:12px 12px 12px 16px;border-radius:16px;font-size:12px;letter-spacing:.05em;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.5)}
+.bkbar span{flex:1;line-height:1.4}.bkbar b{color:#f59e0b;display:block;letter-spacing:.08em}
+.bkbar button{flex:none;padding:9px 12px;line-height:1.3;border-radius:12px;font-weight:700;font-size:12px;letter-spacing:.06em;color:var(--on-a);background:var(--a)}
+.bkdue{border-color:rgba(245,158,11,.6)}.bkwarn{color:#f59e0b}
+body.t-bilan .view>h2:first-child{margin-top:0}
+.modal{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.modal .box{width:100%;max-width:420px;padding:20px}
+.modal h3{margin:0 0 12px;font-size:16px;letter-spacing:.06em;color:var(--ink)}
+.modal .box p{font-size:13px;line-height:1.5;margin:8px 0;letter-spacing:.03em}
+.modal table{margin:6px 0 4px}
+.snap{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:12px;letter-spacing:.04em}
+.snap:last-child{border-bottom:0}.snap span{flex:1;line-height:1.4}.snap small{color:var(--muted)}
+.snap button{flex:none;padding:8px 10px;border-radius:10px;font-weight:600;font-size:12px}
 
 /* Barre d'onglets flottante */
 .tabs{position:fixed;left:16px;right:16px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:10;max-width:488px;margin:0 auto;border-radius:24px;padding:6px;display:flex;gap:4px;
@@ -235,6 +253,8 @@ tr:last-child td{border-bottom:0}
 <div class="toast" id="toast"></div>
 <input type="file" id="importFile" accept="application/json,.json" hidden>
 <script>
+/* SÉCURITÉ : l'app refuse de s'afficher à l'intérieur d'un autre site */
+if(window.top!==window.self){document.documentElement.innerHTML='';throw new Error('cadre refusé')}
 const OBJ=['SALAT','SPORT','TRAVAIL','APPRENTISSAGE','LECTURE','NO JUNK FOOD','NO THC','NO TABAC','NO PORN'];
 const EX=[{id:'tractions',n:'Tractions'},{id:'dips',n:'Dips'},{id:'pompes',n:'Pompes'},{id:'squats',n:'Squats'}];
 /* Premier jour de suivi : rien avant cette date n'est affiché ni compté */
@@ -242,6 +262,7 @@ const START='2026-11-10',START_D=new Date(START.replace(/-/g,'/'));
 const SK='pdc-tracker-v2',SK_PREV=SK+'-avant-import',SK_RESCUE=SK+'-secours-';
 const CHECK='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
 const LOCK='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const XMARK='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
 /* ---------- Stockage local (protégé) ---------- */
@@ -254,11 +275,23 @@ function load(){const s=lsGet(SK);if(!s)return memCopy||{days:{},meta:{}};
   try{const d=JSON.parse(s);if(isDB(d))return{days:d.days,meta:d.meta||{}}}catch(e){}
   /* Données illisibles : on les met de côté au lieu de les écraser */
   lsSet(SK_RESCUE+Date.now(),s);rescued=true;return{days:{},meta:{}}}
-function normDB(d){for(const k of Object.keys(d.days)){const x=d.days[k];if(!/^\d{4}-\d{2}-\d{2}$/.test(k)||k<START){delete d.days[k];continue}
-  if(!x.obj||typeof x.obj!=='object')x.obj={};if(!x.sets||typeof x.sets!=='object')x.sets={};
-  for(const e of Object.keys(x.sets))x.sets[e]=Array.isArray(x.sets[e])?x.sets[e].map(Number).filter(v=>v>0):[];
-  x.planks=Array.isArray(x.planks)?x.planks.map(Number).filter(v=>v>0):[];
-  if(!(x.course&&x.course.d>0))x.course=null;if(!(x.poids&&x.poids.v>0))x.poids=null}return d}
+/* SÉCURITÉ : toute donnée chargée (stockage, fichier restauré, copie) est reconstruite champ par champ.
+   Seuls les objectifs et exercices connus, des nombres bornés et des dates valides sont gardés. */
+const numIn=(v,min,max)=>{v=Number(v);return Number.isFinite(v)&&v>=min&&v<=max?v:null};
+const isKey=k=>typeof k==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(k);
+function normDB(d){const days=Object.create(null),src=d&&d.days&&typeof d.days==='object'?d.days:{};
+  for(const k of Object.keys(src)){const x=src[k];if(!isKey(k)||k<START||!x||typeof x!=='object')continue;
+    const y={obj:{},sets:{},planks:[],poids:null,course:null};
+    if(x.obj&&typeof x.obj==='object')for(const o of OBJ)if(x.obj[o]===true)y.obj[o]=true;
+    if(x.sets&&typeof x.sets==='object')for(const e of EX)if(Array.isArray(x.sets[e.id]))y.sets[e.id]=x.sets[e.id].slice(0,200).map(v=>numIn(v,1,9999)).filter(v=>v!=null);
+    if(Array.isArray(x.planks))y.planks=x.planks.slice(0,200).map(v=>numIn(v,1,86400)).filter(v=>v!=null);
+    if(x.course&&typeof x.course==='object'){const c={d:numIn(x.course.d,0.01,1000),t:numIn(x.course.t,0,100000)||0,den:numIn(x.course.den,0,100000)||0};if(c.d)y.course=c}
+    if(x.poids&&typeof x.poids==='object'){const v=numIn(x.poids.v,1,700);if(v)y.poids={v,jeun:x.poids.jeun===true}}
+    if(x.locked===true)y.locked=true;if(x.sportAuto===true)y.sportAuto=true;days[k]=y}
+  const m=d&&d.meta&&typeof d.meta==='object'?d.meta:{},meta={};
+  const le=numIn(m.lastExport,0,4e12);if(le)meta.lastExport=le;
+  if(m.exports&&typeof m.exports==='object'){meta.exports={};for(const p of ['week','month','year'])if(isKey(m.exports[p]))meta.exports[p]=m.exports[p]}
+  return{days:Object.assign({},days),meta}}
 let DB=normDB(load());
 function save(){memCopy=DB;const ok=lsSet(SK,JSON.stringify(DB));
   if(!ok&&!saveFailed){saveFailed=true;setTimeout(()=>toast('Attention : enregistrement impossible sur cet appareil. Exportez vos données.',4000),50)}
@@ -269,6 +302,80 @@ function syncSport(d){if(!d)return;if(hasSport(d)){if(!d.obj.SPORT){d.obj.SPORT=
 function getDay(k,create){let d=DB.days[k];if(!d&&create)d=DB.days[k]={obj:{},sets:{},planks:[],poids:null,course:null};return d}
 /* Demande au navigateur de ne jamais effacer automatiquement les données */
 async function askPersist(){try{if(navigator.storage&&navigator.storage.persist){persisted=await navigator.storage.persisted();if(!persisted)persisted=await navigator.storage.persist()}}catch(e){}if(tab==='bilan')render()}
+
+/* ---------- Système de sauvegarde ----------
+   1. Copies internes (IndexedDB) : une copie par jour, à 00:05 si l'app est ouverte, sinon dès
+      qu'elle est rouverte (un iPhone ne laisse pas une app web travailler fermée). 7 jours gardés,
+      + copies faites avant chaque restauration / effacement (3 gardées).
+   2. Rappel : bandeau si la dernière sauvegarde externe date de plus de 7 jours.
+   3. Sauvegarder : 2 fichiers au nom de l'app + date : JSON (pour restaurer) et PDF (bilan lisible).
+   4. Restaurer : vérification + aperçu + confirmation, copie interne AVANT remplacement. */
+const APP='pdc-tracker',FORMAT=1,SK_LASTBK=SK+'-derniere-sauvegarde',BK_DAYS=7,SNAP_DAILY=7,SNAP_OTHER=3;
+const lastBackup=()=>+lsGet(SK_LASTBK)||DB.meta.lastExport||0;
+function setBackupDone(){const t=Date.now();lsSet(SK_LASTBK,String(t));DB.meta.lastExport=t;save()}
+/* Alerte d'export par période (semaine, mois, année) : la période précédente, terminée, a-t-elle été exportée ? */
+const SK_EXP=SK+'-exports',PNAME={week:'semaine',month:'mois',year:'année'};
+function expDone(){let a={};try{a=JSON.parse(lsGet(SK_EXP))||{}}catch(e){}const b=DB.meta.exports||{},o={};for(const k of ['week','month','year'])o[k]=[a[k]||'',b[k]||''].sort().pop();return o}
+function markExported(per,endKey){const o=expDone();if(endKey>(o[per]||'')){o[per]=endKey;lsSet(SK_EXP,JSON.stringify(o));DB.meta.exports=o;save()}}
+function prevRange(per){const t=today0();let s,e;
+  if(per==='week'){e=addDays(t,-((t.getDay()+6)%7)-1);s=addDays(e,-6)}
+  else if(per==='month'){s=new Date(t.getFullYear(),t.getMonth()-1,1);e=new Date(t.getFullYear(),t.getMonth(),0)}
+  else{s=new Date(t.getFullYear()-1,0,1);e=new Date(t.getFullYear()-1,11,31)}return{s,e}}
+function expAlert(per){if(per==='day'||!hasData())return'';const{s,e}=prevRange(per);if(e<START_D)return'';
+  if((expDone()[per]||'')>=key(e))return'';const lbl=per==='week'?`Semaine du ${fmtShort.format(s<START_D?START_D:s)} au ${fmtShort.format(e)}`:per==='month'?MONTHS[s.getMonth()][0].toUpperCase()+MONTHS[s.getMonth()].slice(1)+' '+s.getFullYear():'Année '+s.getFullYear();
+  return`<div class="bkbar"><span><b>${PNAME[per][0].toUpperCase()+PNAME[per].slice(1)} précédent${per==='week'||per==='year'?'e':''} non exporté${per==='week'||per==='year'?'e':''}</b>${lbl}</span><button data-a="exportPrev">Exporter</button></div>`}
+/* IndexedDB */
+let idbP=null;
+function idb(){return idbP=idbP||new Promise((res,rej)=>{try{const r=indexedDB.open('pdc-tracker-copies',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('snaps',{keyPath:'id',autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}).catch(e=>{idbP=null;throw e})}
+const idbReq=(mode,fn)=>idb().then(db=>new Promise((res,rej)=>{const t=db.transaction('snaps',mode),s=t.objectStore('snaps');let out;const q=fn(s);if(q)q.onsuccess=()=>{out=q.result};t.oncomplete=()=>res(out);t.onerror=t.onabort=()=>rej(t.error)}));
+async function snapList(){return((await idbReq('readonly',s=>s.getAll()))||[]).sort((a,b)=>b.at-a.at)}
+const SNAP_WHY={ouverture:'copie quotidienne',manuelle:'sauvegarde manuelle','avant-restauration':'avant restauration','avant-effacement':'avant effacement'};
+/* Renvoie true si la copie est faite (ou inutile), false en cas d'échec */
+async function snapPut(why){try{if(!hasData())return true;const data=JSON.stringify(DB),day=key(today0()),all=await snapList(),daily=why==='ouverture';
+  if(daily&&all.some(s=>s.why==='ouverture'&&s.day===day))return true;
+  await idbReq('readwrite',s=>s.add({at:Date.now(),day,why,n:Object.keys(DB.days).length,data}));
+  const g=x=>x==='ouverture'||x==='manuelle'?x:'autre',grp=(await snapList()).filter(s=>g(s.why)===g(why)).slice(g(why)==='autre'?SNAP_OTHER:SNAP_DAILY);
+  if(grp.length)await idbReq('readwrite',s=>{grp.forEach(x=>s.delete(x.id))});return true}catch(e){return false}}
+async function fillSnaps(){const el=$('snaps');if(!el)return;let all;try{all=await snapList()}catch(e){el.innerHTML='<p class="muted">Copies internes indisponibles sur ce navigateur.</p>';return}
+  if(!$('snaps'))return;const f=new Intl.DateTimeFormat('fr-FR',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  el.innerHTML=all.length?all.map(s=>`<div class="snap"><span>${f.format(new Date(s.at))}<br><small>${+s.n||0} jour${s.n>1?'s':''} · ${esc(SNAP_WHY[s.why]||s.why)}</small></span><button class="ghost raise" style="margin:0;width:auto" data-a="snapRestore" data-id="${+s.id}">Restaurer</button></div>`).join('')
+    :'<p class="muted">Aucune copie pour l\'instant : la première sera faite cette nuit à 00:05 (ou à la prochaine ouverture).</p>'}
+/* Fenêtre de confirmation (remplace les confirmations du navigateur) */
+function ask(title,html,okLabel,danger,info){return new Promise(res=>{const m=document.createElement('div');m.className='modal';
+  m.innerHTML=`<div class="box card"><h3>${title}</h3>${html}<button class="primary" data-k="ok" ${danger?'style="background:#ef4444;box-shadow:none"':''}>${okLabel}</button>${info?'':'<button class="ghost raise" data-k="no">Annuler</button>'}</div>`;
+  const end=v=>{m.remove();res(v)};m.addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)end(b.dataset.k==='ok');else if(e.target===m)end(false)});document.body.appendChild(m)})}
+function summary(d){const ks=Object.keys(d.days).sort();let sets=0;for(const k of ks){const x=d.days[k];for(const v of Object.values(x.sets||{}))sets+=(v||[]).length}
+  const fd=k=>fmtShort.format(fromKey(k));return{n:ks.length,from:ks.length?fd(ks[0]):'–',to:ks.length?fd(ks[ks.length-1]):'–',sets}}
+function cmpTable(nw,label){const a=summary(DB),b=summary(nw);
+  return`<table><tr><th></th><th>Actuelles</th><th>${label}</th></tr><tr><td>Jours</td><td>${a.n}</td><td>${b.n}</td></tr><tr><td>Du</td><td>${a.from}</td><td>${b.from}</td></tr><tr><td>Au</td><td>${a.to}</td><td>${b.to}</td></tr><tr><td>Séries muscu</td><td>${a.sets}</td><td>${b.sets}</td></tr></table>`}
+/* Remplacement des données : copie interne d'abord, sinon on n'écrase rien */
+async function replaceData(nw,msg){const okSnap=await snapPut('avant-restauration'),okLs=!hasData()||lsSet(SK_PREV,JSON.stringify(DB));
+  if(!okSnap&&!okLs){toast('Copie de sécurité impossible : rien n\'a été modifié',2800);return}
+  DB=normDB({days:nw.days,meta:nw.meta||{}});resetDrafts();save();render();toast(msg,2600)}
+function backupFile(){const data={app:APP,format:FORMAT,exportedAt:new Date().toISOString(),days:DB.days,meta:DB.meta};
+  return new File([JSON.stringify(data)],`${APP}_sauvegarde_${key(today0())}.json`,{type:'application/json'})}
+/* Partage iPhone (Enregistrer dans Fichiers) ; à défaut, téléchargement. Renvoie true si fait. */
+async function shareOrDownload(files){
+  if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files});return true}catch(err){if(err&&err.name==='AbortError')return false;}}
+  try{files.forEach(f=>{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)});return true}catch(e){toast('Sauvegarde impossible ici');return false}}
+/* Exporter : PDF du bilan de la période affichée + fichier .json, via le partage (Mail, Fichiers…) */
+async function doExport(){if(!hasData()){toast('Aucune donnée à exporter');return}
+  const{s:rs,e:re}=getRange(),pn={day:'jour',week:'semaine',month:'mois',year:'annee'}[period],files=[];
+  try{files.push(new File([buildPDF()],`${APP}_bilan-${pn}_${key(rs)}.pdf`,{type:'application/pdf'}))}catch(err){toast('PDF impossible : fichier .json seul',2600)}
+  files.push(backupFile());
+  if(await shareOrDownload(files)){setBackupDone();if(period!=='day'&&re<today0())markExported(period,key(re));render();toast('Export prêt')}}
+/* Sauvegarder (bas du Bilan) : point de restauration interne, sans fichier */
+const SK_LASTSAVE=SK+'-derniere-sauvegarde-interne';
+async function doSave(){if(!hasData()){toast('Aucune donnée à sauvegarder');return}
+  if(await snapPut('manuelle')){lsSet(SK_LASTSAVE,String(Date.now()));render();toast('Sauvegarde faite')}else toast('Sauvegarde impossible sur ce navigateur',2600)}
+/* Lecture et contrôle d'un fichier de sauvegarde */
+function checkBackup(txt){let d;try{d=JSON.parse(txt)}catch(e){return{err:'Ce fichier n\'est pas une sauvegarde lisible.'}}
+  if(!d||typeof d!=='object')return{err:'Fichier invalide.'};
+  if(d.app!=null&&d.app!==APP)return{err:'Ce fichier vient d\'une autre application.'};
+  const v=d.format==null?0:+d.format;if(!(v>=0))return{err:'Version de format inconnue.'};
+  if(v>FORMAT)return{err:'Sauvegarde créée par une version plus récente de l\'app. Mettez l\'app à jour puis réessayez.'};
+  if(!isDB(d))return{err:'Contenu de la sauvegarde invalide.'};return{data:d,v}}
 
 /* ---------- Dates & formats ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -375,6 +482,7 @@ function renderHeader(){const diff=Math.round((today0()-cur)/864e5);
   document.body.className='t-'+tab}
 function render(anim){renderHeader();const v=$('view');
   v.innerHTML=tab==='obj'?vObj():tab==='sport'?vSport():tab==='chrono'?vMinuteur():vBilan();
+  if(tab==='bilan')fillSnaps();
   if(anim){v.classList.remove('anim');void v.offsetWidth;v.classList.add('anim')}}
 
 function vObj(){const k=key(cur),d=DB.days[k],locked=!!(d&&d.locked),isToday=+cur===+today0(),done=OBJ.filter(o=>isDone(k,o)).length,r=36,c=2*Math.PI*r;
@@ -500,7 +608,7 @@ function vBilan(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),P={day:'Jour'
   const safe=persisted===true?`<p class="muted safe ok"><i></i>Stockage protégé : le navigateur ne l'effacera pas</p>`
     :persisted===false?`<p class="muted safe ko"><i></i>Stockage non garanti : installez l'app sur l'écran d'accueil et exportez chaque semaine</p>`:'';
   return `<div class="seg well">${Object.entries(P).map(([k,l])=>`<button class="${period===k?'on':''}" data-a="per" data-id="${k}">${l}</button>`).join('')}</div>
-  <div class="rlabel">${rangeLabel(s,e)}</div>
+  ${expAlert(period)}<div class="rlabel">${rangeLabel(s,e)}</div>
   <div class="kpis">
     <div class="kpi card"><span>Objectifs</span><b>${st.pct==null?'–':Math.round(st.pct*100)+' %'}</b><small>${st.done} cochés</small></div>
     <div class="kpi card"><span>Répétitions</span><b>${num(st.reps)}</b><small>${EX.reduce((a,x)=>a+st.ex[x.id].sets,0)} séries</small></div>
@@ -513,13 +621,15 @@ function vBilan(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),P={day:'Jour'
   <h2>Gainage</h2><div class="card pad"><table><tr><td>Séries</td><td>${st.plank.n}</td></tr><tr><td>Temps total</td><td>${st.plank.t?fmtDur(st.plank.t):'–'}</td></tr><tr><td>Meilleure série</td><td>${st.plank.best?fmtDur(st.plank.best):'–'}</td></tr></table>${recapTable(rr,['Période','Séries · total','Meilleure'],rcPlank)}</div>
   ${rescued?`<div class="banner warn"><b>Données illisibles détectées.</b> Elles ont été mises de côté sur cet appareil sans être effacées. Importez votre dernière sauvegarde.</div>`:''}
   ${saveFailed?`<div class="banner warn"><b>Enregistrement impossible.</b> Le navigateur refuse le stockage (navigation privée ?). Exportez avant de fermer.</div>`:''}
-  ${due?`<div class="banner"><b>Bilan hebdo à exporter.</b> Un appui crée le PDF et la sauvegarde, puis ouvre le partage (Mail, Fichiers…).</div>`:''}
-  <h2>Export et données</h2><div class="card pad">
-    <button class="primary" style="margin-top:0" data-a="export">Exporter ce bilan</button>
-    <button class="ghost raise" data-a="import">Importer une sauvegarde</button>
-    ${hasPrev?`<button class="ghost raise" data-a="undoImport">Annuler le dernier import</button>`:''}
-    <button class="ghost raise danger" data-a="clear">Tout effacer</button>
-    <p class="muted" style="margin-top:12px">${last?'Dernier export : '+fmtShort.format(new Date(last)):'Aucun export pour l\'instant'} · données stockées sur cet appareil</p>${safe}</div>`}
+  <button class="primary" data-a="export" style="margin-top:24px">Exporter · ${PNAME[period]||'jour'}</button>
+  <p class="muted" style="margin-top:8px;text-align:center">PDF du bilan + fichier .json de restauration · Mail, Fichiers…</p>
+  <h2>Sauvegarde et données</h2><div class="card pad">
+    <button class="ghost raise" style="margin-top:0" data-a="save">Sauvegarder</button>
+    <p class="muted" style="margin:8px 0 6px;text-align:center">${(()=>{const t=+lsGet(SK_LASTSAVE);return t?'Dernière sauvegarde : '+new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(t)):'Copie des données sur ce téléphone, sans fichier'})()}</p>
+    <button class="ghost raise" data-a="import">Restaurer un fichier .json</button>
+    ${hasPrev?`<button class="ghost raise" data-a="undoImport">Annuler la dernière restauration</button>`:''}
+    <button class="ghost raise danger" data-a="clear">Tout effacer</button>${safe}</div>
+  <h2>Copies internes</h2><div class="card pad"><p class="muted" style="margin:0 0 4px">Copie automatique chaque jour + vos sauvegardes manuelles (7 de chaque). Sur ce téléphone uniquement : utile après une erreur de saisie, pas en cas de perte du téléphone.</p><div id="snaps"><p class="muted">Chargement…</p></div></div>`}
 
 /* ---------- Actions ---------- */
 function toast(m,ms,cls){const t=$('toast');t.className='toast'+(cls?' '+cls:'');t.textContent=m;void t.offsetWidth;t.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('show'),ms||1800)}
@@ -559,18 +669,30 @@ const actions={
   pkDel(b){const d=getDay(key(cur));if(!d||!d.planks)return;d.planks.splice(+b.dataset.i,1);syncSport(d);save();render()},
   per(b){period=b.dataset.id;render()},
   export:doExport,
-  import(){if(hasData()&&!confirmArm('import','Remplacer vos données actuelles ? Touchez à nouveau'))return;$('importFile').click()},
+  save:doSave,
+  async exportPrev(){const keep=cur;cur=prevRange(period).e;if(cur<START_D)cur=new Date(START_D);render();await doExport();cur=keep;render()},
+  import(){$('importFile').click()},
+  async snapRestore(b){let s;try{s=(await snapList()).find(x=>x.id===+b.dataset.id)}catch(e){}if(!s){toast('Copie introuvable');return}
+    let d;try{d=JSON.parse(s.data);if(!isDB(d))throw 0}catch(e){toast('Copie illisible');return}
+    const f=new Intl.DateTimeFormat('fr-FR',{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+    if(!await ask('Restaurer cette copie ?',`<p>Copie du ${f.format(new Date(s.at))}.</p>${cmpTable(d,'Copie')}<p class="muted">Vos données actuelles seront d'abord mises de côté dans les copies internes.</p>`,'Remplacer mes données'))return;
+    await replaceData(d,'Copie restaurée')},
   undoImport(){if(!confirmArm('undo','Revenir aux données d\'avant l\'import ? Touchez à nouveau'))return;
-    try{const d=JSON.parse(lsGet(SK_PREV));if(!isDB(d))throw 0;DB=normDB({days:d.days,meta:d.meta||{}});lsDel(SK_PREV);resetDrafts();save();render();toast('Import annulé')}catch(e){toast('Copie précédente illisible')}},
-  clear(){if(!confirmArm('clear','Tout effacer ? Touchez à nouveau'))return;DB={days:{},meta:{}};resetDrafts();save();render();toast('Données effacées')}
+    try{const d=JSON.parse(lsGet(SK_PREV));if(!isDB(d))throw 0;DB=normDB({days:d.days,meta:d.meta||{}});lsDel(SK_PREV);resetDrafts();save();render();toast('Restauration annulée')}catch(e){toast('Copie précédente illisible')}},
+  async clear(){if(!hasData()){toast('Aucune donnée');return}
+    if(!await ask('Tout effacer ?','<p>Toutes les données de l\'app seront effacées de ce téléphone.</p><p class="muted">Une copie interne est faite juste avant (restaurable dans « Copies internes »). Vos fichiers de sauvegarde iCloud ne sont pas touchés.</p>','Tout effacer',true))return;
+    if(!await snapPut('avant-effacement')&&!lsSet(SK_PREV,JSON.stringify(DB))){toast('Copie de sécurité impossible : rien n\'a été effacé',2800);return}
+    DB={days:{},meta:{}};resetDrafts();save();render();toast('Données effacées')}
 };
 function resetDrafts(){draftC=draftP=null;stepVal={}}
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(b&&actions[b.dataset.a])actions[b.dataset.a](b)});
 $('importFile').addEventListener('change',async ev=>{const f=ev.target.files[0];ev.target.value='';if(!f)return;
-  let data;try{data=JSON.parse(await f.text());if(!isDB(data))throw 0}catch(e){toast('Fichier invalide : rien n\'a été modifié',2600);return}
-  /* Copie de sécurité des données actuelles, restaurable via « Annuler le dernier import » */
-  if(hasData()&&!lsSet(SK_PREV,JSON.stringify(DB))){toast('Copie de sécurité impossible : import annulé',2600);return}
-  DB=normDB({days:data.days,meta:data.meta||{}});resetDrafts();save();render();toast(`Sauvegarde importée (${Object.keys(DB.days).length} jours)`,2400)});
+  if(f.size>5e6){await ask('Restauration impossible','<p>Fichier trop volumineux pour être une sauvegarde de l\'app.</p><p class="muted">Rien n\'a été modifié.</p>','OK',false,true);return}
+  let txt;try{txt=await f.text()}catch(e){toast('Fichier illisible : rien n\'a été modifié',2600);return}
+  const c=checkBackup(txt);if(c.err){await ask('Restauration impossible',`<p>${c.err}</p><p class="muted">Rien n'a été modifié.</p>`,'OK',false,true);return}
+  const when=c.data.exportedAt?new Date(c.data.exportedAt):new Date(f.lastModified),wf=new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(!await ask('Restaurer cette sauvegarde ?',`<p><b>${esc(f.name)}</b><br>Créée le ${isNaN(when)?'(date inconnue)':wf.format(when)}${c.v?'':' · ancien format, compatible'}</p>${cmpTable(c.data,'Fichier')}<p class="muted">${hasData()?'Vos données actuelles seront d\'abord mises de côté dans les copies internes.':'Aucune donnée actuelle sur ce téléphone.'}</p>`,'Remplacer mes données'))return;
+  await replaceData(c.data,`Sauvegarde restaurée (${Object.keys(c.data.days).length} jours)`)});
 
 /* ---------- Export PDF + sauvegarde ---------- */
 /* Générateur PDF intégré : aucune bibliothèque externe, fonctionne hors ligne. */
@@ -578,18 +700,20 @@ const HWID=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,
   667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,
   556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
 const CP1252={'€':128,'‚':130,'ƒ':131,'„':132,'…':133,'†':134,'‡':135,'ˆ':136,'‰':137,'Š':138,'‹':139,'Œ':140,'Ž':142,'‘':145,'’':146,'“':147,'”':148,'•':149,'–':150,'—':151,'˜':152,'™':153,'š':154,'›':155,'œ':156,'ž':158,'Ÿ':159,' ':32,' ':32,'−':45};
-const PC={ink:[.08,.09,.13],mut:[.42,.45,.52],acc:[.114,.306,.847],line:[.84,.86,.9],track:[.9,.92,.95]};
+/* Thème sombre du PDF (reprend les couleurs de l'app) */
+const PC={bg:[.071,.078,.098],card:[.118,.129,.161],ink:[.93,.94,.96],mut:[.56,.6,.68],acc:[.376,.584,.98],ok:[.29,.85,.5],line:[.2,.22,.27],track:[.17,.19,.23]};
 const pdfEnc=s=>{let o='';for(const ch of String(s).replace(/[\r\n\t]/g,' ')){const c=ch.codePointAt(0);o+=String.fromCharCode(c<256?c:(CP1252[ch]||63))}return o};
 const pdfEsc=s=>pdfEnc(s).replace(/[\\()]/g,'\\$&');
 const strW=(s,size,bold)=>{let w=0;for(const ch of String(s).normalize('NFD')){const c=ch.charCodeAt(0);if(c>=0x300&&c<=0x36f)continue;w+=(c>=32&&c<=126?HWID[c-32]:556)}return w*size/1000*(bold?1.06:1)};
 function newPDF(){const W=595,H=842,M=44,pages=[],f=n=>(+n).toFixed(2),col=c=>c.join(' ');let ops,y;
-  const page=()=>{ops=[];pages.push(ops);y=H-M};page();
+  const page=()=>{ops=[`${col(PC.bg)} rg 0 0 ${W} ${H} re f`];pages.push(ops);y=H-M};page();
   return{W,M,
     get y(){return y},
     gap(h){y-=h},
-    need(h){if(y-h<M)page()},
-    text(x,s,size=10,o={}){const w=o.right||o.center?strW(s,size,o.bold):0,px=o.right?x-w:o.center?x-w/2:x;
-      ops.push(`BT /${o.bold?'F2':'F1'} ${size} Tf ${col(o.color||PC.ink)} rg ${f(px)} ${f(o.y??y)} Td (${pdfEsc(s)}) Tj ET`)},
+    need(h){if(y-h<M){page();return true}return false},
+    text(x,s,size=10,o={}){const ls=o.ls||0,w=o.right||o.center?strW(s,size,o.bold)+ls*String(s).length:0,px=o.right?x-w:o.center?x-w/2:x;
+      ops.push(`BT /${o.bold?'F2':'F1'} ${size} Tf ${ls} Tc ${col(o.color||PC.ink)} rg ${f(px)} ${f(o.y??y)} Td (${pdfEsc(s)}) Tj ET`)},
+    rrect(x,ry,w,h,r,c){const k=.5523*r,R=x+w,T=ry+h;ops.push(`${col(c)} rg ${f(x+r)} ${f(ry)} m ${f(R-r)} ${f(ry)} l ${f(R-r+k)} ${f(ry)} ${f(R)} ${f(ry+r-k)} ${f(R)} ${f(ry+r)} c ${f(R)} ${f(T-r)} l ${f(R)} ${f(T-r+k)} ${f(R-r+k)} ${f(T)} ${f(R-r)} ${f(T)} c ${f(x+r)} ${f(T)} l ${f(x+r-k)} ${f(T)} ${f(x)} ${f(T-r+k)} ${f(x)} ${f(T-r)} c ${f(x)} ${f(ry+r)} l ${f(x)} ${f(ry+r-k)} ${f(x+r-k)} ${f(ry)} ${f(x+r)} ${f(ry)} c f`)},
     rect(x,ry,w,h,c){ops.push(`${col(c)} rg ${f(x)} ${f(ry)} ${f(w)} ${f(h)} re f`)},
     line(x1,y1,x2,y2,c=PC.line,w=.6){ops.push(`${col(c)} RG ${w} w ${f(x1)} ${f(y1)} m ${f(x2)} ${f(y2)} l S`)},
     poly(pts,c,w=1.4){ops.push(`${col(c)} RG ${w} w 1 j 1 J `+pts.map((p,i)=>`${f(p[0])} ${f(p[1])} ${i?'l':'m'}`).join(' ')+' S')},
@@ -597,7 +721,7 @@ function newPDF(){const W=595,H=842,M=44,pages=[],f=n=>(+n).toFixed(2),col=c=>c.
     build(){const n=pages.length,objs=[],kids=pages.map((_,i)=>`${5+2*i} 0 R`).join(' ');
       objs.push('<< /Type /Catalog /Pages 2 0 R >>',`<< /Type /Pages /Kids [${kids}] /Count ${n} >>`,
         '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
-      pages.forEach((p,i)=>{const t=`PDC Tracker - page ${i+1}/${n}`,foot=`BT /F1 8 Tf ${col(PC.mut)} rg ${f(W/2-strW(t,8)/2)} 24 Td (${pdfEsc(t)}) Tj ET`,
+      pages.forEach((p,i)=>{const t=`PDC TRACKER  ·  ${i+1}/${n}`,foot=`BT /F1 8 Tf 0 Tc ${col(PC.mut)} rg ${f(W/2-strW(t,8)/2)} 24 Td (${pdfEsc(t)}) Tj ET`,
         stream=p.concat(foot).join('\n');
         objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${6+2*i} 0 R >>`,
           `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`)});
@@ -610,55 +734,65 @@ function newPDF(){const W=595,H=842,M=44,pages=[],f=n=>(+n).toFixed(2),col=c=>c.
       const u=new Uint8Array(out.length);for(let i=0;i<out.length;i++)u[i]=out.charCodeAt(i)&255;
       return new Blob([u],{type:'application/pdf'})}}}
 function pdfBars(d,vals,labels,h,max){d.need(h+34);const L=d.M,w=d.W-2*d.M,n=vals.length,g=n>20?2:5,bw=(w-g*(n-1))/n,mx=max||Math.max(1,...vals),base=d.y-h;
-  vals.forEach((v,i)=>{const x=L+i*(bw+g);d.rect(x,base,bw,h,PC.track);if(v>0)d.rect(x,base,bw,Math.max(1.5,Math.min(1,v/mx)*h),PC.acc);
+  const rr=Math.min(3,bw/2);vals.forEach((v,i)=>{const x=L+i*(bw+g);d.rrect(x,base,bw,h,rr,PC.track);if(v>0)d.rrect(x,base,bw,Math.max(2*rr,Math.min(1,v/mx)*h),rr,PC.acc);
     if(labels[i])d.text(x+bw/2,labels[i],7,{y:base-10,center:true,color:PC.mut})});d.gap(h+26)}
-function pdfRecap(d,rr,heads,fn){if(!rr.length)return;const L=d.M,R=d.W-d.M;d.need(40);d.gap(4);d.text(L,'Par '+recapUnit(),8,{bold:true,color:PC.mut});d.gap(13);
-  d.text(L,heads[0],8,{bold:true,color:PC.mut});d.text(L+260,heads[1],8,{bold:true,color:PC.mut,right:true});d.text(R,heads[2],8,{bold:true,color:PC.mut,right:true});d.gap(6);d.line(L,d.y,R,d.y);d.gap(13);
-  rr.forEach(r=>{const c=fn(r);d.need(15);d.text(L,c[0],9);d.text(L+260,c[1],9,{right:true});d.text(R,c[2],9,{right:true});d.gap(14)})}
+const recapH=n=>n?36+n*14:0;
+/* Tableau récapitulatif : si une page se termine au milieu, l'en-tête des colonnes est répété */
+function pdfRecap(d,rr,heads,fn){if(!rr.length)return;const L=d.M,R=d.W-d.M;d.need(36+2*14);d.gap(4);d.text(L,'Par '+recapUnit(),8,{bold:true,color:PC.mut});d.gap(13);
+  const head=()=>{d.text(L,heads[0],8,{bold:true,color:PC.mut});d.text(L+260,heads[1],8,{bold:true,color:PC.mut,right:true});d.text(R,heads[2],8,{bold:true,color:PC.mut,right:true});d.gap(6);d.line(L,d.y,R,d.y);d.gap(13)};head();
+  rr.forEach(r=>{const c=fn(r);if(d.need(15))head();d.text(L,c[0],9);d.text(L+260,c[1],9,{right:true});d.text(R,c[2],9,{right:true});d.gap(14)})}
 function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),L=d.M,R=d.W-d.M,pw=st.poids,
     pDelta=pw.length>1?pw[pw.length-1].v-pw[0].v:null,sets=EX.reduce((a,x)=>a+st.ex[x.id].sets,0);
-  const sec=t=>{d.need(70);d.gap(10);d.text(L,t,12,{bold:true,color:PC.acc});d.gap(6);d.line(L,d.y,R,d.y);d.gap(16)};
-  d.gap(14);d.text(L,'PDC Tracker',22,{bold:true,color:PC.acc});d.gap(20);
-  d.text(L,rangeLabel(s,e),12,{bold:true});d.gap(14);
-  d.text(L,'Généré le '+new Intl.DateTimeFormat('fr-FR',{dateStyle:'long'}).format(new Date()),9,{color:PC.mut});d.gap(14);
+  /* Mise en page : un titre de section n'est jamais seul en bas de page. Chaque section est gardée entière
+     sur une page (h = hauteur de son contenu) ; si elle est plus grande qu'une page, elle commence en haut d'une page. */
+  const sec=(t,h)=>{d.need(46+Math.min(h,640));d.gap(18);d.rrect(L,d.y-2,3,13,1.5,PC.acc);d.text(L+11,t.toUpperCase(),10,{bold:true,ls:1.4});d.gap(10);d.line(L,d.y,R,d.y);d.gap(18)};
+  /* En-tête */
+  const P={day:'BILAN DU JOUR',week:'BILAN DE LA SEMAINE',month:'BILAN DU MOIS',year:"BILAN DE L'ANNÉE"}[period];
+  d.rrect(L-14,d.y-58,R-L+28,82,14,PC.card);
+  d.text(L,'PDC TRACKER',20,{bold:true,ls:2,color:PC.ink});d.text(R,P,8,{bold:true,ls:1.6,right:true,color:PC.acc,y:d.y+6});d.gap(24);
+  {const rl=rangeLabel(s,e);d.text(L,rl[0].toUpperCase()+rl.slice(1),12,{bold:true,color:PC.acc})}d.gap(16);
+  d.text(L,'Généré le '+new Intl.DateTimeFormat('fr-FR',{dateStyle:'long'}).format(new Date()),8,{color:PC.mut,ls:.4});d.gap(40);
   /* Chiffres clés */
   const kw=(R-L)/4,kp=[['Objectifs',st.pct==null?'–':Math.round(st.pct*100)+' %',st.done+' cochés'],
     ['Répétitions',num(st.reps),sets+' série'+(sets>1?'s':'')],
     ['Course',num(st.run.d,1)+' km',st.run.n+' sortie'+(st.run.n>1?'s':'')],
     ['Poids',pw.length?num(pw[pw.length-1].v,1)+' kg':'–',pDelta==null?'dernière pesée':(pDelta>0?'+':'')+num(pDelta,1)+' kg sur la période']];
-  d.need(60);const y0=d.y;
-  kp.forEach((c,i)=>{const x=L+i*kw;d.text(x,c[0],8,{y:y0,bold:true,color:PC.mut});d.text(x,c[1],16,{y:y0-18,bold:true});d.text(x,c[2],8,{y:y0-31,color:PC.mut})});
-  d.gap(42);
+  d.need(80);const y0=d.y,cg=8,cw=(R-L-3*cg)/4;
+  kp.forEach((c,i)=>{const x=L+i*(cw+cg);d.rrect(x,y0-50,cw,64,10,PC.card);d.text(x+11,c[0].toUpperCase(),7,{y:y0,bold:true,ls:1,color:PC.mut});d.text(x+11,c[1],16,{y:y0-21,bold:true});d.text(x+11,c[2].length>24?c[2].replace(' sur la période',''):c[2],7,{y:y0-38,color:PC.mut})});
+  d.gap(58);
   /* Objectifs */
-  sec('Objectifs du pattern');
+  sec('Objectifs du pattern',OBJ.length*19);
   const bx=L+135,bw=R-bx-95;
   OBJ.forEach(o=>{d.need(18);const p=st.el?st.obj[o]/st.el:0;
-    d.text(L,o,10);d.rect(bx,d.y-1,bw,7,PC.track);if(p>0)d.rect(bx,d.y-1,bw*p,7,PC.acc);
-    d.text(R,Math.round(p*100)+' %',10,{right:true,bold:true});d.text(R-38,st.obj[o]+'/'+st.el,9,{right:true,color:PC.mut});d.gap(17)});
+    d.text(L,o,10,{bold:true});d.rrect(bx,d.y-1,bw,8,4,PC.track);if(p>0)d.rrect(bx,d.y-1,Math.max(8,bw*p),8,4,p>=1?PC.ok:PC.acc);
+    d.text(R,Math.round(p*100)+' %',10,{right:true,bold:true});d.text(R-38,st.obj[o]+'/'+st.el,9,{right:true,color:PC.mut});d.gap(19)});
   if(period!=='day'){const bk=buckets(s,e),bs=bk.map(b=>stats(b.days));
-    sec('Objectifs atteints par '+(period==='year'?'mois':'jour'));
+    sec('Objectifs atteints par '+(period==='year'?'mois':'jour'),114);
     pdfBars(d,bs.map(x=>x.pct==null?0:Math.round(x.pct*100)),bk.map(b=>b.l),80,100)}
   /* Musculation */
-  sec('Musculation');
+  sec('Musculation',20+EX.length*20);
   const cx=[L,L+250,L+340,R];
   d.text(cx[0],'Exercice',8,{bold:true,color:PC.mut});d.text(cx[1],'Total',8,{bold:true,color:PC.mut,right:true});
   d.text(cx[2],'Séries',8,{bold:true,color:PC.mut,right:true});d.text(cx[3],'Record',8,{bold:true,color:PC.mut,right:true});d.gap(6);d.line(L,d.y,R,d.y);d.gap(14);
   EX.forEach(x=>{d.need(20);const r=st.ex[x.id];d.text(cx[0],x.n,10,{bold:true});d.text(cx[1],num(r.reps),10,{right:true});
     d.text(cx[2],String(r.sets),10,{right:true});d.text(cx[3],r.best?r.best+' rép.':'–',10,{right:true});d.gap(6);d.line(L,d.y,R,d.y);d.gap(14)});
   /* Course */
-  sec('Course à pied');
+  const nr=period==='day'?0:recapRows(s,e).length;
+  sec('Course à pied',st.run.n?5*16+recapH(nr):16);
+  if(!st.run.n){d.text(L,'Aucune sortie sur la période',10,{color:PC.mut});d.gap(16)}else{
   [['Sorties',String(st.run.n)],['Distance',num(st.run.d,1)+' km'],['Temps',st.run.t?fmtMin(st.run.t):'–'],['Dénivelé +',num(st.run.den)+' m'],['Allure moyenne',fmtPace(st.run.t,st.run.d)]]
     .forEach(r=>{d.need(18);d.text(L,r[0],10,{color:PC.mut});d.text(L+130,r[1],10,{bold:true});d.gap(16)});
-  pdfRecap(d,recapRows(s,e),['P\u00e9riode','Distance','Temps'],rcRun);
+  pdfRecap(d,recapRows(s,e),['P\u00e9riode','Distance','Temps'],rcRun)}
   /* Gainage */
-  sec('Gainage');
+  sec('Gainage',st.plank.n?3*16+recapH(nr):16);
+  if(!st.plank.n){d.text(L,'Aucune série sur la période',10,{color:PC.mut});d.gap(16)}else{
   [['Séries',String(st.plank.n)],['Temps total',st.plank.t?fmtDur(st.plank.t):'–'],['Meilleure série',st.plank.best?fmtDur(st.plank.best):'–']]
     .forEach(r=>{d.need(18);d.text(L,r[0],10,{color:PC.mut});d.text(L+130,r[1],10,{bold:true});d.gap(16)});
-  pdfRecap(d,recapRows(s,e),['P\u00e9riode','S\u00e9ries \u00b7 total','Meilleure'],rcPlank);
+  pdfRecap(d,recapRows(s,e),['P\u00e9riode','S\u00e9ries \u00b7 total','Meilleure'],rcPlank)}
   /* Poids */
-  d.need(pw.length<2?90:210);sec('Poids');
-  if(pw.length<2){d.text(L,pw.length?'Une seule pesée sur la période : '+num(pw[0].v,1)+' kg':'Aucune pesée sur la période',10,{color:PC.mut});d.gap(18)}
-  else{const H=120;d.need(H+60);
+  sec('Poids',pw.length<2?18:206);
+  if(pw.length<2){d.text(L,pw.length?(period==='day'?'Pesée : '+num(pw[0].v,1)+' kg'+(pw[0].jeun?' (à jeun)':''):'Une seule pesée sur la période : '+num(pw[0].v,1)+' kg'):'Aucune pesée sur la période',10,{color:PC.mut});d.gap(18)}
+  else{const H=120;
     const vs=pw.map(p=>p.v),mn=Math.min(...vs),mx=Math.max(...vs),m=Math.max(.5,(mx-mn)*.15),lo=Math.floor((mn-m)*2)/2,hi=Math.ceil((mx+m)*2)/2,
       x0=L+34,x1=R-6,bot=d.y-H,t0=+s,span=Math.max(864e5,+e-t0),X=k=>x0+(fromKey(k)-t0)/span*(x1-x0),Y=v=>bot+(v-lo)/(hi-lo)*H;
     [lo,(lo+hi)/2,hi].forEach(v=>{d.line(x0,Y(v),x1,Y(v));d.text(x0-5,num(v,1),8,{y:Y(v)-3,right:true,color:PC.mut})});
@@ -667,23 +801,21 @@ function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),
     d.text(x0,fmtShort.format(s),8,{y:bot-12,color:PC.mut});d.text(x1,fmtShort.format(e),8,{y:bot-12,right:true,color:PC.mut});
     d.gap(H+32);
     const sc=[['Première',pw[0].v],['Dernière',pw[pw.length-1].v],['Minimum',mn],['Moyenne',vs.reduce((a,b)=>a+b,0)/vs.length],['Maximum',mx]],cw=(R-L)/5;
-    d.need(30);const yy=d.y;sc.forEach((c,i)=>{d.text(L+i*cw,c[0],8,{y:yy,bold:true,color:PC.mut});d.text(L+i*cw,num(c[1],1)+' kg',11,{y:yy-14,bold:true})});d.gap(24)}
+    const yy=d.y;sc.forEach((c,i)=>{d.text(L+i*cw,c[0],8,{y:yy,bold:true,color:PC.mut});d.text(L+i*cw,num(c[1],1)+' kg',11,{y:yy-14,bold:true})});d.gap(24)}
   return d.build()}
-async function doExport(){const{s,e}=getRange(),label=rangeLabel(s,e),files=[],stamp=key(today0()),pn={day:'jour',week:'semaine',month:'mois',year:'annee'}[period];
-  files.push(new File([JSON.stringify(DB)],`PDC-sauvegarde-${stamp}.json`,{type:'application/json'}));
-  try{files.unshift(new File([buildPDF()],`PDC-bilan-${pn}-${stamp}.pdf`,{type:'application/pdf'}))}catch(err){toast('PDF impossible : sauvegarde seule',2600)}
-  try{if(navigator.canShare&&navigator.canShare({files}))await navigator.share({files,title:'PDC Tracker - '+label});
-    else files.forEach(f=>{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)});
-    DB.meta.lastExport=Date.now();save();render();toast('Export prêt')}catch(err){if(err&&err.name!=='AbortError')toast('Export impossible ici')}}
-
 /* ---------- Démarrage ---------- */
 let shownToday=+today0();
 function dayCheck(){const t=+today0();if(t!==shownToday){if(+cur===shownToday){cur=today0();draftC=draftP=null}shownToday=t;render()}}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){dayCheck();pkTick();mnTick();if(pk.st==='run'||mn.st==='run')wakeOn()}});setInterval(dayCheck,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){dayCheck();snapPut('ouverture');pkTick();mnTick();if(pk.st==='run'||mn.st==='run')wakeOn()}});setInterval(dayCheck,60000);
 if(pk.st==='run'){pkTimer=setInterval(pkTick,250);wakeOn()}
 mnBoot();
 render();
 askPersist();
+/* Copie interne automatique à l'ouverture (une par jour, 7 jours gardés) */
+snapPut('ouverture').then(()=>{if(tab==='bilan')fillSnaps()});
+/* Copie quotidienne à 00:05 si l'app est restée ouverte */
+(function nightly(){const n=new Date(),t=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,5);
+  setTimeout(()=>{snapPut('ouverture').then(()=>{if(tab==='bilan')fillSnaps()});nightly()},t-n)})();
 if('serviceWorker' in navigator&&location.protocol==='https:'||location.hostname==='localhost')
   navigator.serviceWorker&&navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
