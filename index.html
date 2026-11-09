@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-MH0S9kUtdWKVphP4OrWDZyQscyhdMkWdpDPrttRygV4='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-SLH+n2ERzPiq2mGe8sHNiozTkjgkuYTadQwTjbwZpEU='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -628,7 +628,7 @@ function vBilan(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),P={day:'Jour'
     <p class="muted" style="margin:8px 0 6px;text-align:center">${(()=>{const t=+lsGet(SK_LASTSAVE);return t?'Dernière sauvegarde : '+new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(t)):'Copie des données sur ce téléphone, sans fichier'})()}</p>
     <button class="ghost raise" data-a="import">Restaurer un fichier .json</button>
     ${hasPrev?`<button class="ghost raise" data-a="undoImport">Annuler la dernière restauration</button>`:''}
-    <button class="ghost raise danger" data-a="clear">Tout effacer</button>${safe}</div>
+    ${safe}</div>
   <h2>Copies internes</h2><div class="card pad"><p class="muted" style="margin:0 0 4px">Copie automatique chaque jour + vos sauvegardes manuelles (7 de chaque). Sur ce téléphone uniquement : utile après une erreur de saisie, pas en cas de perte du téléphone.</p><div id="snaps"><p class="muted">Chargement…</p></div></div>`}
 
 /* ---------- Actions ---------- */
@@ -678,11 +678,7 @@ const actions={
     if(!await ask('Restaurer cette copie ?',`<p>Copie du ${f.format(new Date(s.at))}.</p>${cmpTable(d,'Copie')}<p class="muted">Vos données actuelles seront d'abord mises de côté dans les copies internes.</p>`,'Remplacer mes données'))return;
     await replaceData(d,'Copie restaurée')},
   undoImport(){if(!confirmArm('undo','Revenir aux données d\'avant l\'import ? Touchez à nouveau'))return;
-    try{const d=JSON.parse(lsGet(SK_PREV));if(!isDB(d))throw 0;DB=normDB({days:d.days,meta:d.meta||{}});lsDel(SK_PREV);resetDrafts();save();render();toast('Restauration annulée')}catch(e){toast('Copie précédente illisible')}},
-  async clear(){if(!hasData()){toast('Aucune donnée');return}
-    if(!await ask('Tout effacer ?','<p>Toutes les données de l\'app seront effacées de ce téléphone.</p><p class="muted">Une copie interne est faite juste avant (restaurable dans « Copies internes »). Vos fichiers de sauvegarde iCloud ne sont pas touchés.</p>','Tout effacer',true))return;
-    if(!await snapPut('avant-effacement')&&!lsSet(SK_PREV,JSON.stringify(DB))){toast('Copie de sécurité impossible : rien n\'a été effacé',2800);return}
-    DB={days:{},meta:{}};resetDrafts();save();render();toast('Données effacées')}
+    try{const d=JSON.parse(lsGet(SK_PREV));if(!isDB(d))throw 0;DB=normDB({days:d.days,meta:d.meta||{}});lsDel(SK_PREV);resetDrafts();save();render();toast('Restauration annulée')}catch(e){toast('Copie précédente illisible')}}
 };
 function resetDrafts(){draftC=draftP=null;stepVal={}}
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(b&&actions[b.dataset.a])actions[b.dataset.a](b)});
