@@ -1,0 +1,21 @@
+name: Verification de confidentialite
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recuperer le depot (historique complet, sans action tierce)
+        run: |
+          git clone --quiet "https://github.com/${GITHUB_REPOSITORY}.git" depot
+          cd depot
+          git checkout --quiet "${GITHUB_SHA}"
+      - name: Lancer la verification
+        working-directory: depot
+        run: bash .github/verif-confidentialite.sh

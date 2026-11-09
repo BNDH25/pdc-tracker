@@ -1,0 +1,23 @@
+# Fichiers systeme
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets et cles
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
+# Sauvegardes et exports de l'app (racine uniquement)
+/*.json
+/*.pdf
+
+# Divers
+*.log
+*.tmp
+*.bak
