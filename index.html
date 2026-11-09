@@ -238,7 +238,7 @@ tr:last-child td{border-bottom:0}
 const OBJ=['SALAT','SPORT','TRAVAIL','APPRENTISSAGE','LECTURE','NO JUNK FOOD','NO THC','NO TABAC','NO PORN'];
 const EX=[{id:'tractions',n:'Tractions'},{id:'dips',n:'Dips'},{id:'pompes',n:'Pompes'},{id:'squats',n:'Squats'}];
 /* Premier jour de suivi : rien avant cette date n'est affiché ni compté */
-const START='2026-11-09',START_D=new Date(START.replace(/-/g,'/'));
+const START='2026-11-10',START_D=new Date(START.replace(/-/g,'/'));
 const SK='pdc-tracker-v2',SK_PREV=SK+'-avant-import',SK_RESCUE=SK+'-secours-';
 const CHECK='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
 const LOCK='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
@@ -254,7 +254,7 @@ function load(){const s=lsGet(SK);if(!s)return memCopy||{days:{},meta:{}};
   try{const d=JSON.parse(s);if(isDB(d))return{days:d.days,meta:d.meta||{}}}catch(e){}
   /* Données illisibles : on les met de côté au lieu de les écraser */
   lsSet(SK_RESCUE+Date.now(),s);rescued=true;return{days:{},meta:{}}}
-function normDB(d){for(const k of Object.keys(d.days)){const x=d.days[k];if(!/^\d{4}-\d{2}-\d{2}$/.test(k)){delete d.days[k];continue}
+function normDB(d){for(const k of Object.keys(d.days)){const x=d.days[k];if(!/^\d{4}-\d{2}-\d{2}$/.test(k)||k<START){delete d.days[k];continue}
   if(!x.obj||typeof x.obj!=='object')x.obj={};if(!x.sets||typeof x.sets!=='object')x.sets={};
   for(const e of Object.keys(x.sets))x.sets[e]=Array.isArray(x.sets[e])?x.sets[e].map(Number).filter(v=>v>0):[];
   x.planks=Array.isArray(x.planks)?x.planks.map(Number).filter(v=>v>0):[];
@@ -284,7 +284,7 @@ const fmtMin=m=>{m=Math.round(m||0);const h=Math.floor(m/60);return h?`${h} h ${
 const fmtPace=(min,km)=>{if(!(km>0&&min>0))return'–';let p=min/km,m=Math.floor(p),s=Math.round((p-m)*60);if(s===60){m++;s=0}return`${m}:${pad(s)} /km`};
 
 /* ---------- État ---------- */
-let cur=today0(),tab='obj',pdcSub='muscu',period='week',sel='tractions',stepVal={},armed=0,draftC=null,draftP=null;
+let cur=today0()<START_D?new Date(START_D):today0(),tab='obj',pdcSub='muscu',period='week',sel='tractions',stepVal={},armed=0,draftC=null,draftP=null;
 
 /* ---------- Logique ---------- */
 const hasSport=d=>!!d&&(Object.values(d.sets||{}).some(a=>a.length)||(d.course&&d.course.d>0)||(d.planks&&d.planks.length>0));
