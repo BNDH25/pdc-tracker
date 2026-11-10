@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-zdRpt+3tAKXePvbcTPQZ3v5NdZFBed1ssBa4FyLjVQU='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-IecZc1NMJbxNkYvg8fwU8jPYiwxbSjtfPb0e8qW8vJk='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -71,6 +71,7 @@ button{background:none;border:0;cursor:pointer;touch-action:manipulation;-webkit
 .primary{display:block;width:100%;margin-top:16px;padding:16px;border-radius:16px;font-weight:700;font-size:16px;letter-spacing:.09em;color:var(--on-a);
   background:linear-gradient(180deg,var(--a-hi) -60%,var(--a) 55%);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 4px 0 var(--a-lo),0 14px 22px -12px var(--a);transition:transform .08s,box-shadow .08s}
 .primary:active{transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 1px 0 var(--a-lo),0 6px 12px -8px var(--a)}
+.primary:disabled{background:linear-gradient(180deg,var(--card-hi),var(--card));color:var(--muted);box-shadow:none;opacity:.55;pointer-events:none}
 .ghost{display:block;width:100%;margin-top:10px;padding:13px;border-radius:14px;font-weight:600;font-size:14px}
 .ghost.danger{color:#ef4444}
 
@@ -113,7 +114,11 @@ h2{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.16em;margin
 
 /* Musculation */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ex{border-radius:18px;padding:14px;text-align:left;display:flex;flex-direction:column;gap:4px;height:96px;min-width:0;overflow:hidden}
+.ex{border-radius:18px;padding:14px;text-align:left;display:flex;flex-direction:column;gap:4px;height:96px;min-width:0;overflow:hidden;position:relative}
+.exn{padding-right:44px}
+.ext{position:absolute;top:12px;right:14px;text-align:right;line-height:1.05;font-size:13px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums}
+.ext small{display:block;font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+.ex.big .exv span{white-space:nowrap}
 .ex.big{grid-column:1/-1;height:202px}
 .ex.sel{border-color:color-mix(in srgb,var(--a) 55%,transparent);background:linear-gradient(180deg,var(--soft),transparent 150%),linear-gradient(180deg,var(--card-hi),var(--card));box-shadow:inset 0 1px 0 var(--hl),0 0 0 1px color-mix(in srgb,var(--a) 30%,transparent),0 10px 22px -12px var(--a)}
 .exn{font-size:13px;font-weight:700;letter-spacing:.1em}
@@ -400,17 +405,16 @@ const hasSport=d=>!!d&&(Object.values(d.sets||{}).some(a=>a.length)||(d.course&&
 const isDone=(k,id)=>{const d=DB.days[k];return!!(d&&d.obj[id])};
 function streak(id,k){let d=fromKey(k);if(!isDone(key(d),id))d=addDays(d,-1);let n=0;while(n<3650&&isDone(key(d),id)){n++;d=addDays(d,-1)}return n}
 function findBack(fn){for(let i=0;i<180;i++){const d=DB.days[key(addDays(cur,-i))];const r=d&&fn(d);if(r!=null)return r}return null}
-const lastSetValue=ex=>findBack(d=>{const s=d.sets&&d.sets[ex];return s&&s.length?s[s.length-1]:null})??10;
 /* Record absolu (meilleure série) d'un exercice, tous jours confondus */
 function bestEver(ex){let b=0;for(const d of Object.values(DB.days)){const s=d.sets&&d.sets[ex];if(s)for(const v of s)if(v>b)b=v}return b}
 /* ---------- Gainage : chrono, correction avant enregistrement ---------- */
 const PK_K=SK+'-chrono';
-let pk={st:'idle',t0:0,raw:0,val:30,manual:false},pkTimer=null,wake=null;
-try{const s=JSON.parse(lsGet(PK_K)||'null');if(s&&(s.st==='run'||s.st==='done')&&s.t0>0)pk={st:s.st,t0:s.t0,raw:+s.raw||0,val:+s.val>0?+s.val:30,manual:!!s.manual}}catch(e){}
+let pk={st:'idle',t0:0,raw:0,val:0,manual:false},pkTimer=null,wake=null;
+try{const s=JSON.parse(lsGet(PK_K)||'null');if(s&&(s.st==='run'||s.st==='done')&&s.t0>0)pk={st:s.st,t0:s.t0,raw:+s.raw||0,val:+s.val>0?+s.val:0,manual:!!s.manual}}catch(e){}
 const pkSave=()=>{if(pk.st==='idle')lsDel(PK_K);else lsSet(PK_K,JSON.stringify(pk))};
 const fmtDur=s=>{s=Math.max(0,Math.round(s));return`${Math.floor(s/60)}:${pad(s%60)}`};
 const pkElapsed=()=>pk.st==='run'?Math.max(0,(Date.now()-pk.t0)/1000):pk.raw;
-function pkReset(){clearInterval(pkTimer);pkTimer=null;wakeOff();pk={st:'idle',t0:0,raw:0,val:pk.val||30,manual:false};pkSave()}
+function pkReset(){clearInterval(pkTimer);pkTimer=null;wakeOff();pk={st:'idle',t0:0,raw:0,val:0,manual:false};pkSave()}
 function bestPlank(){let b=0;for(const d of Object.values(DB.days))if(d.planks)for(const v of d.planks)if(v>b)b=v;return b}
 async function wakeOn(){try{if(navigator.wakeLock&&!wake){wake=await navigator.wakeLock.request('screen');wake.addEventListener('release',()=>{wake=null})}}catch(e){}}
 function wakeOff(){try{wake&&wake.release()}catch(e){}wake=null}
@@ -441,19 +445,19 @@ function vMinuteur(){const r=mn.st,t=Math.ceil(mnRem()),fl=Date.now()-mnFlash<40
     ${cust&&r==='idle'?`<div class="mncust">${stepper('mnm','min','Minutes')}${stepper('mns','s','Secondes')}</div>`:''}
     <button class="primary" data-a="${r==='run'?'mnPause':'mnStart'}">${r==='run'?'Arrêter':r==='pause'?'Reprendre':'Démarrer'}</button>
     <button class="ghost raise" data-a="mnReset">Réinitialiser</button></div></div>`}
-function dC(){const k=key(cur);if(!draftC||draftC.k!==k){const s=(DB.days[k]||{}).course,l=s||findBack(d=>d.course&&d.course.d>0?d.course:null)||{d:5,t:30,den:0};draftC={k,d:l.d,t:l.t,den:l.den||0}}return draftC}
+function dC(){const k=key(cur);if(!draftC||draftC.k!==k)draftC={k,d:0,t:0,den:0};return draftC}
 function dP(){const k=key(cur);if(!draftP||draftP.k!==k){const s=(DB.days[k]||{}).poids,l=s||findBack(d=>d.poids&&d.poids.v?d.poids:null)||{v:75,jeun:true};draftP={k,v:l.v,jeun:s?!!s.jeun:true}}return draftP}
 
 /* ---------- Steppers (appui long = défilement rapide) ---------- */
 const ST={
-  reps:{step:1,min:1,max:500,dec:0,get:()=>stepVal[sel]??lastSetValue(sel),set:v=>stepVal[sel]=v},
+  reps:{step:1,min:0,max:500,dec:0,get:()=>stepVal[sel]??0,set:v=>stepVal[sel]=v},
   cd:{step:.1,min:0,max:300,dec:1,get:()=>dC().d,set:v=>dC().d=v},
   ct:{step:1,min:0,max:1440,dec:0,get:()=>dC().t,set:v=>dC().t=v},
   cden:{step:10,min:0,max:9000,dec:0,get:()=>dC().den,set:v=>dC().den=v},
   pv:{step:.1,min:20,max:300,dec:1,get:()=>dP().v,set:v=>dP().v=v},
   mnm:{step:1,min:0,max:99,dec:0,get:()=>Math.floor(mn.dur/60),set:v=>mnSetDur(v*60+mn.dur%60)},
   mns:{step:1,min:0,max:59,dec:0,get:()=>mn.dur%60,set:v=>mnSetDur(Math.floor(mn.dur/60)*60+v)},
-  pt:{step:5,snap:5,min:1,max:3600,dec:0,get:()=>pk.val,set:v=>pk.val=v}};
+  pt:{step:5,snap:5,min:0,max:3600,dec:0,get:()=>pk.val,set:v=>pk.val=v}};
 const fmtV=(id,v)=>num(v,ST[id].dec);
 function stepper(id,unit,label,big){return `<div class="stp ${big?'big':''}">${label?`<div class="stl">${label}</div>`:''}<div class="stc">
   <button class="sbtn raise" data-st="${id}" data-dir="-1" aria-label="Diminuer">−</button>
@@ -463,7 +467,10 @@ function bump(id,delta){const c=ST[id],f=10**c.dec;let v;
   if(c.snap){v=c.get();for(let i=0;i<Math.abs(delta);i++)v=delta>0?Math.floor(v/c.snap+1e-9)*c.snap+c.snap:Math.ceil(v/c.snap-1e-9)*c.snap-c.snap}
   else v=Math.round((c.get()+delta*c.step)*f)/f;
   v=Math.min(c.max,Math.max(c.min,v));c.set(v);const el=$('in-'+id);if(el)el.value=fmtV(id,v);after(id)}
-function after(id){if(id[0]==='c'){const c=dC(),p=$('pace');if(p)p.textContent=fmtPace(c.t,c.d)}
+/* Validation impossible tant que la valeur principale est à 0 */
+function gate(){const q=a=>document.querySelector(`[data-a="${a}"]`),b1=q('add'),b2=q('pkAdd'),b3=q('saveC');
+  if(b1)b1.disabled=!(ST.reps.get()>0);if(b2)b2.disabled=!(pk.val>0);if(b3){const c=dC();b3.disabled=!(c.d>0&&c.t>0)}}
+function after(id){gate();if(id[0]==='c'){const c=dC(),p=$('pace');if(p)p.textContent=fmtPace(c.t,c.d)}
   if(id==='pt'){const h=$('pk-fmt');if(h)h.textContent=fmtDur(pk.val)}}
 let rep=null;
 document.addEventListener('pointerdown',e=>{const b=e.target.closest('[data-st]');if(!b)return;e.preventDefault();const id=b.dataset.st,dir=+b.dataset.dir;let n=0;
@@ -505,13 +512,13 @@ let exBig=null;
 /* Petit carré : 4 dernières séries (3 si trop larges), « … » devant s'il y en a d'autres */
 const exLast=s=>{let k=Math.min(4,s.length);if(k===4&&s.slice(-4).join('').length>8)k=3;return(s.length>k?'… ':'')+s.slice(-k).join(' · ')};
 function vMuscu(){const d=DB.days[key(cur)]||{},sets=d.sets||{};
-  const tiles=EX.filter(e=>!exBig||e.id===exBig).map(e=>{const s=sets[e.id]||[],big=exBig===e.id;return `<button class="ex raise ${sel===e.id?'sel':''} ${big?'big':''}" data-a="sel" data-id="${e.id}" aria-expanded="${big}"><span class="exn">${e.n}</span><span class="exv">${s.length?(big?s.join('\u00a0· '):exLast(s)):'—'}</span><span class="exs">${s.length} série${s.length>1?'s':''}</span></button>`}).join('');
+  const tiles=EX.filter(e=>!exBig||e.id===exBig).map(e=>{const s=sets[e.id]||[],big=exBig===e.id;return `<button class="ex raise ${sel===e.id?'sel':''} ${big?'big':''}" data-a="sel" data-id="${e.id}" aria-expanded="${big}"><span class="exn">${e.n}</span><span class="ext">${s.reduce((a,v)=>a+v,0)}<small>total</small></span><span class="exv">${s.length?(big?s.map((v,i)=>`<span>${v}${i<s.length-1?' ·':''}</span>`).join(' '):exLast(s)):'—'}</span><span class="exs">${s.length} série${s.length>1?'s':''}</span></button>`}).join('');
   const s=sets[sel]||[],ex=EX.find(e=>e.id===sel),best=bestEver(sel),recI=best?s.indexOf(best):-1;
   const rows=s.length?s.map((v,i)=>`<div class="srow"><span class="ix well">${i+1}</span><b>${v} rép.</b>${i===recI?'<span class="rec">Record</span>':''}<button class="raise" data-a="del" data-i="${i}" aria-label="Supprimer la série">${XMARK}</button></div>`).join(''):'<div class="empty">Aucune série validée</div>';
   return `<h2>Exercice</h2><div class="grid">${tiles}</div>
   <h2>Saisie</h2><div class="card pad"><div class="ptitle"><b>${ex.n}</b><span>${best?`<small>Record ${best}</small>`:''}Série ${s.length+1}</span></div>
     ${stepper('reps','rép.','',true)}
-    <button class="primary" data-a="add">Valider la série ${s.length+1}</button>
+    <button class="primary" data-a="add" ${ST.reps.get()>0?'':'disabled'}>Valider la série ${s.length+1}</button>
     <div class="sets">${rows}</div></div>`}
 function vGainage(){const d=DB.days[key(cur)]||{},pl=d.planks||[],best=bestPlank(),tot=pl.reduce((a,b)=>a+b,0),recI=best?pl.indexOf(best):-1;
   let body;
@@ -519,7 +526,7 @@ function vGainage(){const d=DB.days[key(cur)]||{},pl=d.planks||[],best=bestPlank
   else if(pk.st==='done')body=`<div class="chrono well" id="pk-fmt">${fmtDur(pk.val)}</div>
     ${stepper('pt','s','Temps à enregistrer',true)}
     <p class="muted hint">${pk.manual?'Saisie manuelle':'Chrono : '+Math.round(pk.raw)+' s ('+fmtDur(pk.raw)+')'} · correction par pas de 5 s</p>
-    <button class="primary" data-a="pkAdd">Valider la série ${pl.length+1}</button>
+    <button class="primary" data-a="pkAdd" ${pk.val>0?'':'disabled'}>Valider la série ${pl.length+1}</button>
     <button class="ghost raise danger" data-a="pkCancel">Abandonner</button>`;
   else body=`<div class="chrono well">0:00</div><button class="primary" data-a="pkStart">Démarrer le chrono</button>
     <button class="ghost raise" data-a="pkManual">Saisir manuellement</button>`;
@@ -530,7 +537,7 @@ function vCourse(){const saved=(DB.days[key(cur)]||{}).course,c=dC();
   return `<h2>Course à pied</h2><div class="card pad">
     ${stepper('cd','km','Distance')}${stepper('ct','min','Temps')}${stepper('cden','m','Dénivelé +')}
     <div class="pace well">Allure<b id="pace">${fmtPace(c.t,c.d)}</b></div>
-    <button class="primary" data-a="saveC">${saved?'Mettre à jour':'Enregistrer la course'}</button>
+    <button class="primary" data-a="saveC" ${c.d>0&&c.t>0?'':'disabled'}>${saved?'Mettre à jour':'Enregistrer la course'}</button>
     ${saved?`<div class="status">${CHECK}<span>Enregistrée : ${num(saved.d,1)} km · ${fmtMin(saved.t)} · ${saved.den} m D+</span><button class="raise" data-a="delC">Supprimer</button></div>`:''}</div>`}
 function vPoids(){const saved=(DB.days[key(cur)]||{}).poids,p=dP();
   const prev=findBack(d=>d!==DB.days[key(cur)]&&d.poids&&d.poids.v?d.poids.v:null);
@@ -651,11 +658,11 @@ const actions={
   validate(){if(!confirmArm('validate','Touchez à nouveau pour valider'))return;getDay(key(cur),true).locked=true;save();render();toast('Journée validée')},
   unlock(){getDay(key(cur),true).locked=false;save();render()},
   sel(b){const id=b.dataset.id;exBig=exBig===id?null:id;sel=id;render()},
-  add(){const v=ST.reps.get(),prevBest=bestEver(sel),d=getDay(key(cur),true),ex=EX.find(e=>e.id===sel);(d.sets[sel]=d.sets[sel]||[]).push(v);stepVal[sel]=v;syncSport(d);save();render();
+  add(){const v=ST.reps.get();if(!(v>0))return;const prevBest=bestEver(sel),d=getDay(key(cur),true),ex=EX.find(e=>e.id===sel);(d.sets[sel]=d.sets[sel]||[]).push(v);stepVal[sel]=0;syncSport(d);save();render();
     if(prevBest>0&&v>prevBest){toast(`Nouveau record : ${v} rép. (+${v-prevBest})`,3200,'rec');try{navigator.vibrate&&navigator.vibrate([60,50,140])}catch(e){}}
     else toast(`Série de ${v} validée`)},
   del(b){const d=getDay(key(cur));if(!d)return;d.sets[sel].splice(+b.dataset.i,1);syncSport(d);save();render()},
-  saveC(){const c=dC();if(!(c.d>0)){toast('Indiquez une distance');return}const d=getDay(key(cur),true);d.course={d:c.d,t:c.t,den:c.den};syncSport(d);save();render();toast('Course enregistrée')},
+  saveC(){const c=dC();if(!(c.d>0&&c.t>0)){toast('Indiquez une distance et un temps');return}const d=getDay(key(cur),true);d.course={d:c.d,t:c.t,den:c.den};draftC=null;syncSport(d);save();render();toast('Course enregistrée')},
   delC(){const d=getDay(key(cur));if(d){d.course=null;syncSport(d)}draftC=null;save();render()},
   jeun(b){const p=dP();p.jeun=!p.jeun;b.classList.toggle('on',p.jeun)},
   saveP(){const p=dP();getDay(key(cur),true).poids={v:p.v,jeun:p.jeun};save();render();toast('Poids enregistré')},
@@ -665,10 +672,10 @@ const actions={
   mnStart(){mnUnlock();const rem=mn.st==='pause'?mn.left:mn.dur;mn={dur:mn.dur,st:'run',end:Date.now()+rem*1000,left:rem};mnSave();mnLoop();wakeOn();render()},
   mnPause(){if(mn.st!=='run')return;const rem=mnRem();mn={dur:mn.dur,st:'pause',end:0,left:rem};mnSave();mnLoop();wakeOff();render()},
   mnReset(){mn={dur:mn.dur,st:'idle',end:0,left:mn.dur};mnSave();mnLoop();wakeOff();render()},
-  pkStart(){pk={st:'run',t0:Date.now(),raw:0,val:30,manual:false};pkSave();clearInterval(pkTimer);pkTimer=setInterval(pkTick,250);wakeOn();render()},
+  pkStart(){pk={st:'run',t0:Date.now(),raw:0,val:0,manual:false};pkSave();clearInterval(pkTimer);pkTimer=setInterval(pkTick,250);wakeOn();render()},
   pkStop(){const s=(Date.now()-pk.t0)/1000;clearInterval(pkTimer);pkTimer=null;wakeOff();pk={st:'done',t0:pk.t0,raw:s,val:Math.max(5,Math.round(s/5)*5),manual:false};pkSave();render()},
-  pkManual(){const d=DB.days[key(cur)],last=d&&d.planks&&d.planks.length?d.planks[d.planks.length-1]:30;pk={st:'done',t0:Date.now(),raw:0,val:last,manual:true};pkSave();render()},
-  pkAdd(){const v=pk.val,prev=bestPlank(),d=getDay(key(cur),true);(d.planks=d.planks||[]).push(v);syncSport(d);pkReset();pk.val=v;save();render();
+  pkManual(){pk={st:'done',t0:Date.now(),raw:0,val:0,manual:true};pkSave();render()},
+  pkAdd(){const v=pk.val;if(!(v>0))return;const prev=bestPlank(),d=getDay(key(cur),true);(d.planks=d.planks||[]).push(v);syncSport(d);pkReset();save();render();
     if(prev>0&&v>prev){toast(`Nouveau record : ${fmtDur(v)} (+${v-prev} s)`,3200,'rec');try{navigator.vibrate&&navigator.vibrate([60,50,140])}catch(e){}}
     else toast(`Série de ${fmtDur(v)} validée`)},
   pkCancel(){if(!confirmArm('pkc','Abandonner ce temps ? Touchez à nouveau'))return;pkReset();render()},
