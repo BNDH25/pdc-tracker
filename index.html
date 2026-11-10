@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-VfiUOpqGYSJK9bSoL1uk0H0MjsvJq6qGmrMvTQiMEv4='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-3eZ/nj6mU0BwcAu02+QUh+3sZmfE9KuJk0YunmPKMTs='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -46,15 +46,12 @@ body.t-chrono header{display:none}
 .mcard .chrono{flex:0 1 260px;display:flex;align-items:center;justify-content:center;font-size:clamp(56px,17vw,80px);padding:0;margin-bottom:0;min-height:130px}
 .mncust{margin-top:14px}.mncust .stp+.stp{margin-top:10px}
 .mcard .primary{margin-top:0}.mcard .ghost{margin-top:0}.mcard .mnp{margin-top:0}.mcard .mncust{margin-top:0}
-/* Fin du minuteur : pulsation « poum, poum » (1 par seconde, attaque rapide, retour doux) du fond de page et de la carte,
-   jusqu'au toucher. Le chrono (well) et la barre d'onglets ne bougent pas : le calque s'arrête au-dessus de la barre. */
-html.mnal body{background:transparent;transition:none}
-#mnpulse{position:fixed;left:0;right:0;top:0;bottom:0;z-index:-1;pointer-events:none;background:#5b21b6;opacity:0;animation:mnpb 1s infinite;
-  -webkit-mask-image:linear-gradient(#000 calc(100% - 40px),transparent);mask-image:linear-gradient(#000 calc(100% - 40px),transparent)}
-@keyframes mnpb{0%{opacity:0;animation-timing-function:cubic-bezier(.2,.8,.3,1)}14%{opacity:.85;animation-timing-function:cubic-bezier(.45,0,.55,1)}100%{opacity:0}}
-.mcard.alarm{background-image:none;background-color:var(--card);animation:mnpc 1s infinite}
-@keyframes mnpc{0%{background-color:var(--card);animation-timing-function:cubic-bezier(.2,.8,.3,1)}14%{background-color:#7c3aed;animation-timing-function:cubic-bezier(.45,0,.55,1)}100%{background-color:var(--card)}}
-@media (prefers-reduced-motion:reduce){#mnpulse{animation:none;opacity:.6}.mcard.alarm{animation:none;background-color:#6d28d9}}
+/* Fin du minuteur : clignotement d'origine (chrono + voile plein écran), prolongé jusqu'au premier toucher */
+.chrono.fin{animation:fin .3s ease infinite alternate}
+@keyframes fin{to{background:var(--a);color:var(--on-a)}}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:30;opacity:0;background:var(--a)}
+#flash.on{animation:scr 1.1s ease-in-out infinite}
+@keyframes scr{0%,100%{opacity:0}50%{opacity:.3}}
 body.t-bilan{--a:#60a5fa;--a-hi:#bfdbfe;--a-lo:#1d4ed8;--ink:var(--ink-b);--soft:rgba(96,165,250,.14)}
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -449,15 +446,15 @@ function mnAlarmStart(){mnAlarmStop();const a={n:0,snd:null,vib:null,max:null};m
   mnVib(MN_VIB);a.vib=setInterval(()=>mnVib(MN_VIB),MN_VIB_GAP);
   a.max=setTimeout(mnAlarmStop,MN_AL_MAX);
   document.addEventListener('pointerdown',mnAlarmStop,true);document.addEventListener('touchstart',mnAlarmStop,true);
-  wakeOn();const c=document.querySelector('.mcard');if(c)c.classList.add('alarm');
-  let pl=$('mnpulse');if(!pl){pl=document.createElement('div');pl.id='mnpulse';document.body.appendChild(pl)}mnPulseFit();addEventListener('resize',mnPulseFit);document.documentElement.classList.add('mnal')}
-/* Le calque s'arrête 56 px au-dessus de la barre d'onglets (au-delà de la portée de son flou) : la barre reste identique */
-function mnPulseFit(){const pl=$('mnpulse'),tb=document.querySelector('.tabs');if(pl&&tb)pl.style.bottom=Math.max(0,innerHeight-tb.getBoundingClientRect().top+56)+'px'}
-function mnAlarmStop(){if(!mnAl)return;const a=mnAl;mnAl=null;clearInterval(a.snd);clearInterval(a.vib);clearTimeout(a.max);
+  wakeOn();const c=$('mn-time');if(c)c.classList.add('fin');
+  let f=$('flash');if(!f){f=document.createElement('div');f.id='flash';document.body.appendChild(f)}f.className='on'}
+/* Le premier toucher arrête seulement l'alerte : il est absorbé (aucun bouton déclenché), puis tout redevient normal */
+function mnEat(e){e.preventDefault();e.stopImmediatePropagation()}
+function mnAlarmStop(ev){if(!mnAl)return;
+  if(ev&&ev.type){mnEat(ev);document.addEventListener('click',mnEat,{capture:true,once:true});setTimeout(()=>document.removeEventListener('click',mnEat,true),800)}const a=mnAl;mnAl=null;clearInterval(a.snd);clearInterval(a.vib);clearTimeout(a.max);
   document.removeEventListener('pointerdown',mnAlarmStop,true);document.removeEventListener('touchstart',mnAlarmStop,true);
   mnOsc.forEach(o=>{try{o.stop()}catch(e){}});mnOsc=[];mnVib(0);
-  if(mn.st!=='run')wakeOff();const c=document.querySelector('.mcard');if(c)c.classList.remove('alarm');
-  const pl=$('mnpulse');if(pl)pl.remove();removeEventListener('resize',mnPulseFit);document.documentElement.classList.remove('mnal')}
+  if(mn.st!=='run')wakeOff();const c=$('mn-time');if(c)c.classList.remove('fin');const f=$('flash');if(f)f.className=''}
 function mnDone(silent){clearInterval(mnTimer);mnTimer=null;wakeOff();mn={dur:mn.dur,st:'idle',end:0,left:mn.dur};mnSave();
   if(!silent){mnAlarmStart();toast('Repos terminé',2500,'rec')}
   if(tab==='chrono')render()}
@@ -465,7 +462,7 @@ function mnBoot(){if(mn.st==='run'){if(mnRem()<=0)mnDone(Date.now()-mn.end>10000
 let mnEdit=false;
 function mnSetDur(x){x=Math.min(5999,Math.max(5,Math.round(x)));mn={dur:x,st:'idle',end:0,left:x};mnSave();const el=$('mn-time');if(el)el.textContent=fmtDur(x)}
 function vMinuteur(){const r=mn.st,t=Math.ceil(mnRem()),cust=!MN_P.includes(mn.dur)||mnEdit,dis=r!=='idle'?'disabled':'';
-  return `<div class="mview"><div class="card pad mcard ${mnAl?'alarm':''}"><div class="chrono well ${r==='run'?'run':''}" id="mn-time">${fmtDur(t)}</div>
+  return `<div class="mview"><div class="card pad mcard"><div class="chrono well ${r==='run'?'run':''} ${mnAl?'fin':''}" id="mn-time">${fmtDur(t)}</div>
     <div class="mnp">${MN_P.map(x=>`<button class="raise ${!cust&&mn.dur===x?'on':''}" data-a="mnSet" data-s="${x}" ${dis}>${fmtDur(x)}</button>`).join('')}<button class="raise ${cust?'on':''}" data-a="mnCustom" ${dis}>Perso</button></div>
     ${cust&&r==='idle'?`<div class="mncust">${stepper('mnm','min','Minutes')}${stepper('mns','s','Secondes')}</div>`:''}
     <button class="primary" data-a="${r==='run'?'mnPause':'mnStart'}">${r==='run'?'Arrêter':r==='pause'?'Reprendre':'Démarrer'}</button>
