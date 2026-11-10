@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-IecZc1NMJbxNkYvg8fwU8jPYiwxbSjtfPb0e8qW8vJk='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-NFuyp8mejlCSRvq0IGgyQBChYgreCyFQD29LH+s+MxQ='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -367,11 +367,11 @@ async function shareOrDownload(files){
   if(navigator.canShare&&navigator.canShare({files})){try{await navigator.share({files});return true}catch(err){if(err&&err.name==='AbortError')return false;}}
   try{files.forEach(f=>{const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)});return true}catch(e){toast('Sauvegarde impossible ici');return false}}
 /* Exporter : PDF du bilan de la période affichée + fichier .json, via le partage (Mail, Fichiers…) */
-async function doExport(){if(!hasData()){toast('Aucune donnée à exporter');return}
-  const{s:rs,e:re}=getRange(),pn={day:'jour',week:'semaine',month:'mois',year:'annee'}[period],files=[];
+async function doExport(){if(period==='day')return;if(!hasData()){toast('Aucune donnée à exporter');return}
+  const{s:rs,e:re}=getRange(),pn={week:'semaine',month:'mois',year:'annee'}[period],files=[];
   try{files.push(new File([buildPDF()],`${APP}_bilan-${pn}_${key(rs)}.pdf`,{type:'application/pdf'}))}catch(err){toast('PDF impossible : fichier .json seul',2600)}
   files.push(backupFile());
-  if(await shareOrDownload(files)){setBackupDone();if(period!=='day'&&re<today0())markExported(period,key(re));render();toast('Export prêt')}}
+  if(await shareOrDownload(files)){setBackupDone();if(re<today0())markExported(period,key(re));render();toast('Export prêt')}}
 /* Sauvegarder (bas du Bilan) : point de restauration interne, sans fichier */
 const SK_LASTSAVE=SK+'-derniere-sauvegarde-interne';
 async function doSave(){if(!hasData()){toast('Aucune donnée à sauvegarder');return}
@@ -617,7 +617,7 @@ function vBilan(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),P={day:'Jour'
     charts=`<h2>Objectifs atteints par ${period==='year'?'mois':'jour'}</h2><div class="card pad">${bars(bs.map(x=>x.pct==null?0:Math.round(x.pct*100)),lb,hl,v=>v+'%')}${byObj}</div>
     <h2>Répétitions</h2><div class="card pad">${bars(bs.map(x=>x.reps),lb,hl,v=>v>=1000?(v/1000).toFixed(1)+'k':v)}</div>
     <h2>Poids</h2><div class="card pad">${wChart(pw,s,e)}</div>`}
-  else charts=`<h2>Objectifs du jour</h2><div class="card pad">${byObj.replace('<div class="sub">Par objectif</div>','')}</div><h2>Répétitions du jour</h2><div class="card pad">${bars(EX.map(x=>st.ex[x.id].reps),EX.map(x=>x.n.toUpperCase()),EX.map(()=>1),v=>v)}</div>`;
+  else charts=`<h2>Répétitions du jour</h2><div class="card pad">${bars(EX.map(x=>st.ex[x.id].reps),EX.map(x=>x.n.toUpperCase()),EX.map(()=>1),v=>v)}</div>`;
   const safe=persisted===true?`<p class="muted safe ok"><i></i>Stockage protégé : le navigateur ne l'effacera pas</p>`
     :persisted===false?`<p class="muted safe ko"><i></i>Stockage non garanti : installez l'app sur l'écran d'accueil et exportez chaque semaine</p>`:'';
   return `<div class="seg well">${Object.entries(P).map(([k,l])=>`<button class="${period===k?'on':''}" data-a="per" data-id="${k}">${l}</button>`).join('')}</div>
@@ -634,8 +634,8 @@ function vBilan(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),P={day:'Jour'
   <h2>Gainage</h2><div class="card pad"><table><tr><td>Séries</td><td>${st.plank.n}</td></tr><tr><td>Temps total</td><td>${st.plank.t?fmtDur(st.plank.t):'–'}</td></tr><tr><td>Meilleure série</td><td>${st.plank.best?fmtDur(st.plank.best):'–'}</td></tr></table>${recapTable(rr,['Période','Séries · total','Meilleure'],rcPlank)}</div>
   ${rescued?`<div class="banner warn"><b>Données illisibles détectées.</b> Elles ont été mises de côté sur cet appareil sans être effacées. Importez votre dernière sauvegarde.</div>`:''}
   ${saveFailed?`<div class="banner warn"><b>Enregistrement impossible.</b> Le navigateur refuse le stockage (navigation privée ?). Exportez avant de fermer.</div>`:''}
-  <button class="primary" data-a="export" style="margin-top:24px">Exporter · ${PNAME[period]||'jour'}</button>
-  <p class="muted" style="margin-top:8px;text-align:center">PDF du bilan + fichier .json de restauration · Mail, Fichiers…</p>
+  ${period!=='day'?`<button class="primary" data-a="export" style="margin-top:24px">Exporter · ${PNAME[period]}</button>
+  <p class="muted" style="margin-top:8px;text-align:center">PDF du bilan + fichier .json de restauration · Mail, Fichiers…</p>`:''}
   <h2>Sauvegarde et données</h2><div class="card pad">
     <button class="ghost raise" style="margin-top:0" data-a="save">Sauvegarder</button>
     <p class="muted" style="margin:8px 0 6px;text-align:center">${(()=>{const t=+lsGet(SK_LASTSAVE);return t?'Dernière sauvegarde : '+new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(t)):'Copie des données sur ce téléphone, sans fichier'})()}</p>
@@ -756,7 +756,7 @@ function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),
      sur une page (h = hauteur de son contenu) ; si elle est plus grande qu'une page, elle commence en haut d'une page. */
   const sec=(t,h)=>{d.need(46+Math.min(h,640));d.gap(18);d.rrect(L,d.y-2,3,13,1.5,PC.acc);d.text(L+11,t.toUpperCase(),10,{bold:true,ls:1.4});d.gap(10);d.line(L,d.y,R,d.y);d.gap(18)};
   /* En-tête */
-  const P={day:'BILAN DU JOUR',week:'BILAN DE LA SEMAINE',month:'BILAN DU MOIS',year:"BILAN DE L'ANNÉE"}[period];
+  const P={week:'BILAN DE LA SEMAINE',month:'BILAN DU MOIS',year:"BILAN DE L'ANNÉE"}[period];
   d.rrect(L-14,d.y-58,R-L+28,82,14,PC.card);
   d.text(L,'PDC TRACKER',20,{bold:true,ls:2,color:PC.ink});d.text(R,P,8,{bold:true,ls:1.6,right:true,color:PC.acc,y:d.y+6});d.gap(24);
   {const rl=rangeLabel(s,e);d.text(L,rl[0].toUpperCase()+rl.slice(1),12,{bold:true,color:PC.acc})}d.gap(16);
@@ -775,7 +775,7 @@ function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),
   OBJ.forEach(o=>{d.need(18);const p=st.el?st.obj[o]/st.el:0;
     d.text(L,o,10,{bold:true});d.rrect(bx,d.y-1,bw,8,4,PC.track);if(p>0)d.rrect(bx,d.y-1,Math.max(8,bw*p),8,4,p>=1?PC.ok:PC.acc);
     d.text(R,Math.round(p*100)+' %',10,{right:true,bold:true});d.text(R-38,st.obj[o]+'/'+st.el,9,{right:true,color:PC.mut});d.gap(19)});
-  if(period!=='day'){const bk=buckets(s,e),bs=bk.map(b=>stats(b.days));
+  {const bk=buckets(s,e),bs=bk.map(b=>stats(b.days));
     sec('Objectifs atteints par '+(period==='year'?'mois':'jour'),114);
     pdfBars(d,bs.map(x=>x.pct==null?0:Math.round(x.pct*100)),bk.map(b=>b.l),80,100)}
   /* Musculation */
@@ -786,7 +786,7 @@ function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),
   EX.forEach(x=>{d.need(20);const r=st.ex[x.id];d.text(cx[0],x.n,10,{bold:true});d.text(cx[1],num(r.reps),10,{right:true});
     d.text(cx[2],String(r.sets),10,{right:true});d.text(cx[3],r.best?r.best+' rép.':'–',10,{right:true});d.gap(6);d.line(L,d.y,R,d.y);d.gap(14)});
   /* Course */
-  const nr=period==='day'?0:recapRows(s,e).length;
+  const nr=recapRows(s,e).length;
   sec('Course à pied',st.run.n?5*16+recapH(nr):16);
   if(!st.run.n){d.text(L,'Aucune sortie sur la période',10,{color:PC.mut});d.gap(16)}else{
   [['Sorties',String(st.run.n)],['Distance',num(st.run.d,1)+' km'],['Temps',st.run.t?fmtMin(st.run.t):'–'],['Dénivelé +',num(st.run.den)+' m'],['Allure moyenne',fmtPace(st.run.t,st.run.d)]]
@@ -800,7 +800,7 @@ function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),
   pdfRecap(d,recapRows(s,e),['P\u00e9riode','S\u00e9ries \u00b7 total','Meilleure'],rcPlank)}
   /* Poids */
   sec('Poids',pw.length<2?18:206);
-  if(pw.length<2){d.text(L,pw.length?(period==='day'?'Pesée : '+num(pw[0].v,1)+' kg'+(pw[0].jeun?' (à jeun)':''):'Une seule pesée sur la période : '+num(pw[0].v,1)+' kg'):'Aucune pesée sur la période',10,{color:PC.mut});d.gap(18)}
+  if(pw.length<2){d.text(L,pw.length?'Une seule pesée sur la période : '+num(pw[0].v,1)+' kg':'Aucune pesée sur la période',10,{color:PC.mut});d.gap(18)}
   else{const H=120;
     const vs=pw.map(p=>p.v),mn=Math.min(...vs),mx=Math.max(...vs),m=Math.max(.5,(mx-mn)*.15),lo=Math.floor((mn-m)*2)/2,hi=Math.ceil((mx+m)*2)/2,
       x0=L+34,x1=R-6,bot=d.y-H,t0=+s,span=Math.max(864e5,+e-t0),X=k=>x0+(fromKey(k)-t0)/span*(x1-x0),Y=v=>bot+(v-lo)/(hi-lo)*H;
