@@ -1,7 +1,7 @@
 /* PDC Tracker - mode hors ligne.
    Changer VERSION à chaque mise à jour de l'app pour forcer le rafraîchissement du cache.
    SÉCURITÉ : seuls les fichiers de l'app elle-même (même site) sont mis en cache ; rien d'extérieur. */
-const VERSION = 'pdc-v30';
+const VERSION = 'pdc-v31';
 const LOCAL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png',
   'fonts/barlow-400.woff', 'fonts/barlow-500.woff', 'fonts/barlow-600.woff', 'fonts/barlow-700.woff'];
 

@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-NFuyp8mejlCSRvq0IGgyQBChYgreCyFQD29LH+s+MxQ='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-BBCimD8QDrJ2lcnb+ND6T8+8whMxjwD6TfuxnIjz2K8='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -46,11 +46,9 @@ body.t-chrono header{display:none}
 .mcard .chrono{flex:0 1 260px;display:flex;align-items:center;justify-content:center;font-size:clamp(56px,17vw,80px);padding:0;margin-bottom:0;min-height:130px}
 .mncust{margin-top:14px}.mncust .stp+.stp{margin-top:10px}
 .mcard .primary{margin-top:0}.mcard .ghost{margin-top:0}.mcard .mnp{margin-top:0}.mcard .mncust{margin-top:0}
-.chrono.fin{animation:fin .3s ease 10 alternate}
-@keyframes fin{to{background:var(--a);color:var(--on-a)}}
-#flash{position:fixed;inset:0;pointer-events:none;z-index:30;opacity:0;background:var(--a)}
-#flash.on{animation:scr 1.1s ease-in-out 3}
-@keyframes scr{0%,100%{opacity:0}50%{opacity:.3}}
+/* Fin du minuteur : seule la carte grise alterne doucement avec l'accent, jusqu'au toucher */
+.mcard.alarm{background-image:none;background-color:var(--card);animation:mnal 2s ease-in-out infinite}
+@keyframes mnal{50%{background-color:color-mix(in srgb,var(--a) 62%,var(--card))}}
 body.t-bilan{--a:#60a5fa;--a-hi:#bfdbfe;--a-lo:#1d4ed8;--ink:var(--ink-b);--soft:rgba(96,165,250,.14)}
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -421,7 +419,7 @@ function wakeOff(){try{wake&&wake.release()}catch(e){}wake=null}
 function pkTick(){const el=$('pk-time');if(el)el.textContent=fmtDur(pkElapsed())}
 /* ---------- Minuteur de repos : hors bilans ---------- */
 const MN_K=SK+'-minuteur',MN_P=[60,90,120,150,180];
-let mn={dur:60,st:'idle',end:0,left:60},mnTimer=null,mnFlash=0;
+let mn={dur:60,st:'idle',end:0,left:60},mnTimer=null;
 try{const s=JSON.parse(lsGet(MN_K)||'null');if(s&&+s.dur>=5&&+s.dur<=3600)mn={dur:+s.dur,st:s.st==='run'||s.st==='pause'?s.st:'idle',end:+s.end||0,left:+s.left>0?+s.left:+s.dur}}catch(e){}
 const mnSave=()=>lsSet(MN_K,JSON.stringify(mn));
 const mnRem=()=>mn.st==='run'?Math.max(0,(mn.end-Date.now())/1000):mn.st==='pause'?mn.left:mn.dur;
@@ -429,18 +427,34 @@ function mnTick(){if(mn.st==='run'&&mnRem()<=0){mnDone(Date.now()-mn.end>10000);
 function mnLoop(){clearInterval(mnTimer);mnTimer=mn.st==='run'?setInterval(mnTick,250):null}
 let mnAc=null;
 function mnUnlock(){try{mnAc=mnAc||new (window.AudioContext||window.webkitAudioContext)();if(mnAc.resume)mnAc.resume()}catch(e){}}
-function mnSound(){try{if(!mnAc)return;const t=mnAc.currentTime,mk=(type,f0,f1,t0,dur,vol)=>{const o=mnAc.createOscillator(),g=mnAc.createGain();o.type=type;o.frequency.setValueAtTime(f0,t+t0);o.frequency.exponentialRampToValueAtTime(f1,t+t0+dur);g.gain.setValueAtTime(0,t+t0);g.gain.linearRampToValueAtTime(vol,t+t0+dur*.25);g.gain.linearRampToValueAtTime(0,t+t0+dur);o.connect(g);g.connect(mnAc.destination);o.start(t+t0);o.stop(t+t0+dur+.02)};
-  mk('triangle',350,2400,0,.2,.2);mk('sine',2400,420,.17,.16,.14);mk('sine',3500,1000,.05,.15,.06)}catch(e){}}
-let mnFlashT=null;
-function mnFlashScreen(){let f=$('flash');if(!f){f=document.createElement('div');f.id='flash';document.body.appendChild(f)}f.className='';void f.offsetWidth;f.className='on';clearTimeout(mnFlashT);mnFlashT=setTimeout(()=>{f.className=''},3400)}
+/* Carillon doux (deux notes sinus), volume modéré */
+let mnOsc=[];
+function mnSound(){try{if(!mnAc)return;const t=mnAc.currentTime,mk=(f,t0,dur,vol)=>{const o=mnAc.createOscillator(),g=mnAc.createGain();o.type='sine';o.frequency.setValueAtTime(f,t+t0);
+  g.gain.setValueAtTime(0,t+t0);g.gain.linearRampToValueAtTime(vol,t+t0+.03);g.gain.exponentialRampToValueAtTime(.0001,t+t0+dur);o.connect(g);g.connect(mnAc.destination);o.start(t+t0);o.stop(t+t0+dur+.02);
+  mnOsc.push(o);o.onended=()=>{mnOsc=mnOsc.filter(x=>x!==o)}};
+  mk(880,0,.9,.16);mk(1318.5,.18,1.1,.11)}catch(e){}}
+/* Alerte de fin : clignotement de la carte jusqu'au toucher, son ×5 (toutes les 2 s), vibration en boucle, arrêt auto à 10 min */
+let mnAl=null;const MN_SND_N=5,MN_SND_GAP=2000,MN_VIB=[500,300,500],MN_VIB_GAP=2400,MN_AL_MAX=600000;
+const mnVib=p=>{try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}};
+function mnAlarmStart(){mnAlarmStop();const a={n:0,snd:null,vib:null,max:null};mnAl=a;
+  const ring=()=>{if(mnAl!==a)return;a.n++;mnSound();if(a.n>=MN_SND_N){clearInterval(a.snd);a.snd=null}};
+  ring();a.snd=setInterval(ring,MN_SND_GAP);
+  mnVib(MN_VIB);a.vib=setInterval(()=>mnVib(MN_VIB),MN_VIB_GAP);
+  a.max=setTimeout(mnAlarmStop,MN_AL_MAX);
+  document.addEventListener('pointerdown',mnAlarmStop,true);document.addEventListener('touchstart',mnAlarmStop,true);
+  wakeOn();const c=document.querySelector('.mcard');if(c)c.classList.add('alarm')}
+function mnAlarmStop(){if(!mnAl)return;const a=mnAl;mnAl=null;clearInterval(a.snd);clearInterval(a.vib);clearTimeout(a.max);
+  document.removeEventListener('pointerdown',mnAlarmStop,true);document.removeEventListener('touchstart',mnAlarmStop,true);
+  mnOsc.forEach(o=>{try{o.stop()}catch(e){}});mnOsc=[];mnVib(0);
+  if(mn.st!=='run')wakeOff();const c=document.querySelector('.mcard');if(c)c.classList.remove('alarm')}
 function mnDone(silent){clearInterval(mnTimer);mnTimer=null;wakeOff();mn={dur:mn.dur,st:'idle',end:0,left:mn.dur};mnSave();
-  if(!silent){mnFlash=Date.now();mnSound();mnFlashScreen();try{navigator.vibrate&&navigator.vibrate([400,200,400,200,800])}catch(e){}toast('Repos terminé',2500,'rec')}
+  if(!silent){mnAlarmStart();toast('Repos terminé',2500,'rec')}
   if(tab==='chrono')render()}
 function mnBoot(){if(mn.st==='run'){if(mnRem()<=0)mnDone(Date.now()-mn.end>10000);else{mnLoop();wakeOn()}}}
 let mnEdit=false;
 function mnSetDur(x){x=Math.min(5999,Math.max(5,Math.round(x)));mn={dur:x,st:'idle',end:0,left:x};mnSave();const el=$('mn-time');if(el)el.textContent=fmtDur(x)}
-function vMinuteur(){const r=mn.st,t=Math.ceil(mnRem()),fl=Date.now()-mnFlash<4000,cust=!MN_P.includes(mn.dur)||mnEdit,dis=r!=='idle'?'disabled':'';
-  return `<div class="mview"><div class="card pad mcard"><div class="chrono well ${r==='run'?'run':''} ${fl?'fin':''}" id="mn-time">${fmtDur(t)}</div>
+function vMinuteur(){const r=mn.st,t=Math.ceil(mnRem()),cust=!MN_P.includes(mn.dur)||mnEdit,dis=r!=='idle'?'disabled':'';
+  return `<div class="mview"><div class="card pad mcard ${mnAl?'alarm':''}"><div class="chrono well ${r==='run'?'run':''}" id="mn-time">${fmtDur(t)}</div>
     <div class="mnp">${MN_P.map(x=>`<button class="raise ${!cust&&mn.dur===x?'on':''}" data-a="mnSet" data-s="${x}" ${dis}>${fmtDur(x)}</button>`).join('')}<button class="raise ${cust?'on':''}" data-a="mnCustom" ${dis}>Perso</button></div>
     ${cust&&r==='idle'?`<div class="mncust">${stepper('mnm','min','Minutes')}${stepper('mns','s','Secondes')}</div>`:''}
     <button class="primary" data-a="${r==='run'?'mnPause':'mnStart'}">${r==='run'?'Arrêter':r==='pause'?'Reprendre':'Démarrer'}</button>
@@ -632,17 +646,17 @@ function vBilan(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),P={day:'Jour'
   <h2>Musculation</h2><div class="card pad"><table><tr><th>Exercice</th><th>Total</th><th>Séries</th><th>Record</th></tr>${EX.map(x=>`<tr><td>${x.n}</td><td>${num(st.ex[x.id].reps)}</td><td>${st.ex[x.id].sets}</td><td>${st.ex[x.id].best||'–'}</td></tr>`).join('')}</table></div>
   <h2>Course</h2><div class="card pad"><table><tr><td>Distance</td><td>${num(st.run.d,1)} km</td></tr><tr><td>Temps</td><td>${st.run.t?fmtMin(st.run.t):'–'}</td></tr><tr><td>Dénivelé +</td><td>${num(st.run.den)} m</td></tr><tr><td>Allure moyenne</td><td>${fmtPace(st.run.t,st.run.d)}</td></tr></table>${recapTable(rr,['Période','Distance','Temps'],rcRun)}</div>
   <h2>Gainage</h2><div class="card pad"><table><tr><td>Séries</td><td>${st.plank.n}</td></tr><tr><td>Temps total</td><td>${st.plank.t?fmtDur(st.plank.t):'–'}</td></tr><tr><td>Meilleure série</td><td>${st.plank.best?fmtDur(st.plank.best):'–'}</td></tr></table>${recapTable(rr,['Période','Séries · total','Meilleure'],rcPlank)}</div>
-  ${rescued?`<div class="banner warn"><b>Données illisibles détectées.</b> Elles ont été mises de côté sur cet appareil sans être effacées. Importez votre dernière sauvegarde.</div>`:''}
+  ${rescued?`<div class="banner warn"><b>Données illisibles détectées.</b> Elles ont été mises de côté sur cet appareil sans être effacées. Importez votre dernière sauvegarde${period==='year'?'':' depuis la vue Année'}.</div>`:''}
   ${saveFailed?`<div class="banner warn"><b>Enregistrement impossible.</b> Le navigateur refuse le stockage (navigation privée ?). Exportez avant de fermer.</div>`:''}
   ${period!=='day'?`<button class="primary" data-a="export" style="margin-top:24px">Exporter · ${PNAME[period]}</button>
   <p class="muted" style="margin-top:8px;text-align:center">PDF du bilan + fichier .json de restauration · Mail, Fichiers…</p>`:''}
-  <h2>Sauvegarde et données</h2><div class="card pad">
+  ${period==='year'?`<h2>Sauvegarde et données</h2><div class="card pad">
     <button class="ghost raise" style="margin-top:0" data-a="save">Sauvegarder</button>
     <p class="muted" style="margin:8px 0 6px;text-align:center">${(()=>{const t=+lsGet(SK_LASTSAVE);return t?'Dernière sauvegarde : '+new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(t)):'Copie des données sur ce téléphone, sans fichier'})()}</p>
     <button class="ghost raise" data-a="import">Restaurer un fichier .json</button>
     ${hasPrev?`<button class="ghost raise" data-a="undoImport">Annuler la dernière restauration</button>`:''}
     ${safe}</div>
-  <h2>Copies internes</h2><div class="card pad"><p class="muted" style="margin:0 0 4px">Copie automatique chaque jour + vos sauvegardes manuelles (7 de chaque). Sur ce téléphone uniquement : utile après une erreur de saisie, pas en cas de perte du téléphone.</p><div id="snaps"><p class="muted">Chargement…</p></div></div>`}
+  <h2>Copies internes</h2><div class="card pad"><p class="muted" style="margin:0 0 4px">Copie automatique chaque jour + vos sauvegardes manuelles (7 de chaque). Sur ce téléphone uniquement : utile après une erreur de saisie, pas en cas de perte du téléphone.</p><div id="snaps"><p class="muted">Chargement…</p></div></div>`:''}`}
 
 /* ---------- Actions ---------- */
 function toast(m,ms,cls){const t=$('toast');t.className='toast'+(cls?' '+cls:'');t.textContent=m;void t.offsetWidth;t.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('show'),ms||1800)}
@@ -652,7 +666,7 @@ const actions={
   prev(){if(cur>START_D){cur=addDays(cur,-1);render()}},
   next(){if(cur<today0()){cur=addDays(cur,1);render()}},
   today(){if(+cur!==+today0()){cur=today0();render()}},
-  tab(b){if(tab!==b.dataset.id){tab=b.dataset.id;render(true);scrollTo(0,0)}},
+  tab(b){if(tab!==b.dataset.id){mnAlarmStop();tab=b.dataset.id;render(true);scrollTo(0,0)}},
   sub(b){if(pdcSub!==b.dataset.id){pdcSub=b.dataset.id;render(true)}},
   tog(b){const d=getDay(key(cur),true);if(d.locked){toast('Journée validée : touchez « Modifier »');return}d.obj[b.dataset.id]=!d.obj[b.dataset.id];if(b.dataset.id==='SPORT')d.sportAuto=false;save();render()},
   validate(){if(!confirmArm('validate','Touchez à nouveau pour valider'))return;getDay(key(cur),true).locked=true;save();render();toast('Journée validée')},
@@ -669,7 +683,7 @@ const actions={
   delP(){const d=getDay(key(cur));if(d)d.poids=null;draftP=null;save();render()},
   mnCustom(){if(mn.st!=='idle')return;mnEdit=true;render()},
   mnSet(b){if(mn.st!=='idle')return;mnEdit=false;const x=+b.dataset.s;mn={dur:x,st:'idle',end:0,left:x};mnSave();render()},
-  mnStart(){mnUnlock();const rem=mn.st==='pause'?mn.left:mn.dur;mn={dur:mn.dur,st:'run',end:Date.now()+rem*1000,left:rem};mnSave();mnLoop();wakeOn();render()},
+  mnStart(){mnAlarmStop();mnUnlock();const rem=mn.st==='pause'?mn.left:mn.dur;mn={dur:mn.dur,st:'run',end:Date.now()+rem*1000,left:rem};mnSave();mnLoop();wakeOn();render()},
   mnPause(){if(mn.st!=='run')return;const rem=mnRem();mn={dur:mn.dur,st:'pause',end:0,left:rem};mnSave();mnLoop();wakeOff();render()},
   mnReset(){mn={dur:mn.dur,st:'idle',end:0,left:mn.dur};mnSave();mnLoop();wakeOff();render()},
   pkStart(){pk={st:'run',t0:Date.now(),raw:0,val:0,manual:false};pkSave();clearInterval(pkTimer);pkTimer=setInterval(pkTick,250);wakeOn();render()},
@@ -815,7 +829,7 @@ function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),
 /* ---------- Démarrage ---------- */
 let shownToday=+today0();
 function dayCheck(){const t=+today0();if(t!==shownToday){if(+cur===shownToday){cur=today0();draftC=draftP=null}shownToday=t;render()}}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){dayCheck();snapPut('ouverture');pkTick();mnTick();if(pk.st==='run'||mn.st==='run')wakeOn()}});setInterval(dayCheck,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){dayCheck();snapPut('ouverture');pkTick();mnTick();if(pk.st==='run'||mn.st==='run'||mnAl)wakeOn()}});setInterval(dayCheck,60000);
 if(pk.st==='run'){pkTimer=setInterval(pkTick,250);wakeOn()}
 mnBoot();
 render();
