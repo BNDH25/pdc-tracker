@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-xkjI3c2vk1jNKuhyglMRBXMcXcp+KHZ5Iy8sM91VcbI='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-zdRpt+3tAKXePvbcTPQZ3v5NdZFBed1ssBa4FyLjVQU='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -113,11 +113,13 @@ h2{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.16em;margin
 
 /* Musculation */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.ex{border-radius:18px;padding:14px;text-align:left;display:flex;flex-direction:column;gap:4px;min-height:96px}
+.ex{border-radius:18px;padding:14px;text-align:left;display:flex;flex-direction:column;gap:4px;height:96px;min-width:0;overflow:hidden}
+.ex.big{grid-column:1/-1;height:202px}
 .ex.sel{border-color:color-mix(in srgb,var(--a) 55%,transparent);background:linear-gradient(180deg,var(--soft),transparent 150%),linear-gradient(180deg,var(--card-hi),var(--card));box-shadow:inset 0 1px 0 var(--hl),0 0 0 1px color-mix(in srgb,var(--a) 30%,transparent),0 10px 22px -12px var(--a)}
 .exn{font-size:13px;font-weight:700;letter-spacing:.1em}
 .ex.sel .exn{color:var(--ink)}
-.exv{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;margin-top:auto}
+.exv{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;margin-top:auto;min-width:0}
+.ex.big .exv{white-space:normal;overflow-y:auto;text-overflow:clip;line-height:1.35}
 .exs{font-size:11px;color:var(--muted);letter-spacing:.1em}
 .ptitle{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
 .ptitle b{font-size:16px;letter-spacing:.1em}
@@ -498,8 +500,12 @@ function vObj(){const k=key(cur),d=DB.days[k],locked=!!(d&&d.locked),isToday=+cu
 
 function vSport(){const seg=`<div class="seg well">${[['muscu','Musculation'],['gain','Gainage'],['course','Course'],['poids','Poids']].map(([k,l])=>`<button class="${pdcSub===k?'on':''}" data-a="sub" data-id="${k}">${l}</button>`).join('')}</div>`;
   return seg+(pdcSub==='muscu'?vMuscu():pdcSub==='gain'?vGainage():pdcSub==='course'?vCourse():vPoids())}
+/* Carré agrandi : état en mémoire seulement, jamais enregistré */
+let exBig=null;
+/* Petit carré : 4 dernières séries (3 si trop larges), « … » devant s'il y en a d'autres */
+const exLast=s=>{let k=Math.min(4,s.length);if(k===4&&s.slice(-4).join('').length>8)k=3;return(s.length>k?'… ':'')+s.slice(-k).join(' · ')};
 function vMuscu(){const d=DB.days[key(cur)]||{},sets=d.sets||{};
-  const tiles=EX.map(e=>{const s=sets[e.id]||[];return `<button class="ex raise ${sel===e.id?'sel':''}" data-a="sel" data-id="${e.id}"><span class="exn">${e.n}</span><span class="exv">${s.length?s.join(' · '):'—'}</span><span class="exs">${s.length} série${s.length>1?'s':''}</span></button>`}).join('');
+  const tiles=EX.filter(e=>!exBig||e.id===exBig).map(e=>{const s=sets[e.id]||[],big=exBig===e.id;return `<button class="ex raise ${sel===e.id?'sel':''} ${big?'big':''}" data-a="sel" data-id="${e.id}" aria-expanded="${big}"><span class="exn">${e.n}</span><span class="exv">${s.length?(big?s.join('\u00a0· '):exLast(s)):'—'}</span><span class="exs">${s.length} série${s.length>1?'s':''}</span></button>`}).join('');
   const s=sets[sel]||[],ex=EX.find(e=>e.id===sel),best=bestEver(sel),recI=best?s.indexOf(best):-1;
   const rows=s.length?s.map((v,i)=>`<div class="srow"><span class="ix well">${i+1}</span><b>${v} rép.</b>${i===recI?'<span class="rec">Record</span>':''}<button class="raise" data-a="del" data-i="${i}" aria-label="Supprimer la série">${XMARK}</button></div>`).join(''):'<div class="empty">Aucune série validée</div>';
   return `<h2>Exercice</h2><div class="grid">${tiles}</div>
@@ -644,7 +650,7 @@ const actions={
   tog(b){const d=getDay(key(cur),true);if(d.locked){toast('Journée validée : touchez « Modifier »');return}d.obj[b.dataset.id]=!d.obj[b.dataset.id];if(b.dataset.id==='SPORT')d.sportAuto=false;save();render()},
   validate(){if(!confirmArm('validate','Touchez à nouveau pour valider'))return;getDay(key(cur),true).locked=true;save();render();toast('Journée validée')},
   unlock(){getDay(key(cur),true).locked=false;save();render()},
-  sel(b){sel=b.dataset.id;render()},
+  sel(b){const id=b.dataset.id;exBig=exBig===id?null:id;sel=id;render()},
   add(){const v=ST.reps.get(),prevBest=bestEver(sel),d=getDay(key(cur),true),ex=EX.find(e=>e.id===sel);(d.sets[sel]=d.sets[sel]||[]).push(v);stepVal[sel]=v;syncSport(d);save();render();
     if(prevBest>0&&v>prevBest){toast(`Nouveau record : ${v} rép. (+${v-prevBest})`,3200,'rec');try{navigator.vibrate&&navigator.vibrate([60,50,140])}catch(e){}}
     else toast(`Série de ${v} validée`)},
@@ -688,7 +694,7 @@ $('importFile').addEventListener('change',async ev=>{const f=ev.target.files[0];
   const c=checkBackup(txt);if(c.err){await ask('Restauration impossible',`<p>${c.err}</p><p class="muted">Rien n'a été modifié.</p>`,'OK',false,true);return}
   const when=c.data.exportedAt?new Date(c.data.exportedAt):new Date(f.lastModified),wf=new Intl.DateTimeFormat('fr-FR',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
   if(!await ask('Restaurer cette sauvegarde ?',`<p><b>${esc(f.name)}</b><br>Créée le ${isNaN(when)?'(date inconnue)':wf.format(when)}${c.v?'':' · ancien format, compatible'}</p>${cmpTable(c.data,'Fichier')}<p class="muted">${hasData()?'Vos données actuelles seront d\'abord mises de côté dans les copies internes.':'Aucune donnée actuelle sur ce téléphone.'}</p>`,'Remplacer mes données'))return;
-  await replaceData(c.data,`Sauvegarde restaurée (${Object.keys(normDB(c.data).days).length} jours)`)});
+  await replaceData(c.data,`Sauvegarde restaurée (${(n=>`${n} jour${n>1?'s':''}`)(Object.keys(normDB(c.data).days).length)})`)});
 
 /* ---------- Export PDF + sauvegarde ---------- */
 /* Générateur PDF intégré : aucune bibliothèque externe, fonctionne hors ligne. */
