@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-7Du6SzT9G1+MF9W4aZKx74/wXNdqI3G9kYhXVe+2Cgs='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-HSaaBCkfDn3lZbzDQGmXhu5DnGiWHa8/HceJImCU+XY='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -206,6 +206,7 @@ table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:ta
 td,th{padding:9px 0;border-bottom:1px solid var(--line);text-align:right;letter-spacing:.06em}
 th{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.14em}
 td:first-child,th:first-child{text-align:left;font-weight:600}
+.ana .sub{margin-top:0}.ana+.ana{margin-top:10px}
 tr:last-child td{border-bottom:0}
 .banner{border-radius:16px;padding:14px 16px;font-size:12px;margin-top:18px;letter-spacing:.06em;background:var(--soft);border:1px solid color-mix(in srgb,var(--a) 45%,transparent)}
 .banner b{color:var(--ink)}
@@ -634,6 +635,74 @@ const recapUnit=()=>({week:'jour',month:'semaine',year:'mois'}[period]||'');
 const rcRun=r=>[r.l,r.st.run.n?num(r.st.run.d,1)+' km':'–',r.st.run.t?fmtMin(r.st.run.t):'–'];
 const rcPlank=r=>[r.l,r.st.plank.n?r.st.plank.n+' × · '+fmtDur(r.st.plank.t):'–',r.st.plank.best?fmtDur(r.st.plank.best):'–'];
 function recapTable(rows,heads,fn){if(!rows.length)return'';return`<div class="sub">Par ${recapUnit()}</div><table class="rc"><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr>${rows.map(r=>`<tr>${fn(r).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table>`}
+/* ---------- Analyses (Semaine, Mois, Année) ----------
+   analyse() calcule tout à partir des données existantes, sans rien inventer ; anaView() met en forme ;
+   le Bilan (anaHTML) et le PDF (pdfAna) affichent la même chose. Donnée absente ou division par zéro : « – ».
+   Période précédente commençant avant le démarrage de l'app, ou sans aucun jour actif : pas de comparaison. */
+const ND='–';
+function anaTot(days,s,e){const t={reps:0,sets:0,km:0,act:0,pl:0,ex:{}};EX.forEach(x=>t.ex[x.id]={reps:0,sets:0,best:0});
+  daysBetween(s,e).forEach(x=>{const d=days[key(x)];if(!d)return;if(hasSport(d))t.act++;
+    EX.forEach(ex=>{const r=t.ex[ex.id];((d.sets||{})[ex.id]||[]).forEach(v=>{r.reps+=v;r.sets++;if(v>r.best)r.best=v})});
+    if(d.course&&d.course.d>0)t.km+=d.course.d;(d.planks||[]).forEach(v=>t.pl+=v)});
+  EX.forEach(x=>{t.reps+=t.ex[x.id].reps;t.sets+=t.ex[x.id].sets});return t}
+function analyse(per,s,e,days=DB.days,now=today0()){
+  const r0=per==='week'?addDays(e,-6):per==='month'?new Date(e.getFullYear(),e.getMonth(),1):new Date(e.getFullYear(),0,1);
+  const ds=daysBetween(s,e),t=anaTot(days,s,e),a={per,t,n:daysBetween(r0,e).length};
+  let rd=0,rt=0;ds.forEach(x=>{const c=(days[key(x)]||{}).course;if(c&&c.d>0&&c.t>0){rd+=c.d;rt+=c.t}});a.run={d:rd,t:rt};
+  const ps=per==='week'?addDays(r0,-7):per==='month'?new Date(r0.getFullYear(),r0.getMonth()-1,1):new Date(r0.getFullYear()-1,0,1);
+  const pt=ps>=START_D?anaTot(days,ps,addDays(r0,-1)):null;a.prev=pt&&pt.act>0?pt:null;
+  if(per==='week')return a;
+  a.perAct=t.act?t.reps/t.act:null;
+  /* Semaines du lundi au dimanche, limitées à la période */
+  const wk=[];ds.forEach(x=>{if(!wk.length||x.getDay()===1)wk.push({s:x,e:x,reps:0});const w=wk[wk.length-1],d=days[key(x)];w.e=x;
+    if(d)EX.forEach(ex=>((d.sets||{})[ex.id]||[]).forEach(v=>w.reps+=v))});
+  a.bestWeek=wk.reduce((b,w)=>w.reps>(b?b.reps:0)?w:b,null);
+  let run=0,best=0;ds.forEach(x=>{run=hasSport(days[key(x)])?run+1:0;if(run>best)best=run});a.streak=best;
+  const pw=ds.map(x=>(days[key(x)]||{}).poids).filter(p=>p&&p.v>0).map(p=>p.v);
+  a.w=pw.length?{first:pw[0],last:pw[pw.length-1],mean:pw.reduce((x,v)=>x+v,0)/pw.length,n:pw.length}:null;
+  if(per==='month')return a;
+  const y=e.getFullYear();
+  a.months=MONTHS.map((nm,m)=>{const ms=new Date(y,m,1),me=new Date(y,m+1,0),cs=ms<START_D?new Date(START_D):ms,
+    w=daysBetween(cs,me).map(x=>(days[key(x)]||{}).poids).filter(p=>p&&p.v>0).map(p=>p.v);
+    return{nm,t:anaTot(days,cs,me),el:me>=START_D&&ms<=now,w:w.length?{min:Math.min(...w),max:Math.max(...w),mean:w.reduce((x,v)=>x+v,0)/w.length}:null}});
+  a.nm=a.months.filter(o=>o.el).length;
+  a.bestMonth=a.months.reduce((b,o)=>o.t.reps>(b?b.t.reps:0)?o:b,null);
+  a.rec=EX.map(ex=>{const f=a.months.find(o=>o.t.ex[ex.id].sets>0);return{ex,first:f?{v:f.t.ex[ex.id].best,nm:f.nm}:null,best:t.ex[ex.id].best}});
+  return a}
+function anaView(a){const t=a.t,V=[],sg=v=>v>0?'+':v<0?'−':'',cap=s=>s[0].toUpperCase()+s.slice(1),
+  dlt=(c,p,dec,u)=>{if(p==null)return ND;const d=c-p;return sg(d)+num(Math.abs(d),dec)+u+(p>0?` (${sg(d)}${num(Math.abs(Math.round(d/p*100)))} %)`:'')},
+  avg=(x,n)=>n>0?num(x/n,1):ND,kg=v=>v==null?ND:num(v,1)+' kg';
+  const top=Math.max(0,...EX.map(x=>t.ex[x.id].best));
+  V.push({t:'Musculation',head:['Exercice','Séries','Moy. / série','Meilleure'],
+    rows:EX.map(x=>{const r=t.ex[x.id];return[x.n,String(r.sets),avg(r.reps,r.sets),r.best?String(r.best):ND]}).concat([['Global',String(t.sets),avg(t.reps,t.sets),top?String(top):ND]])});
+  const act=[['Jours actifs',`${t.act} / ${a.n}`]];
+  if(a.per!=='week')act.push(['Répétitions par jour actif',a.perAct==null?ND:num(a.perAct,1)],
+    ['Plus longue série de jours actifs',a.streak?`${a.streak} jour${a.streak>1?'s':''}`:ND],
+    ['Meilleure semaine',a.bestWeek?`${fmtShort.format(a.bestWeek.s)} au ${fmtShort.format(a.bestWeek.e)} · ${num(a.bestWeek.reps)} rép.`:ND]);
+  if(a.per==='year')act.push(['Meilleur mois',a.bestMonth?`${cap(a.bestMonth.nm)} · ${num(a.bestMonth.t.reps)} rép.`:ND],
+    ['Moyenne mensuelle · répétitions',a.nm?num(t.reps/a.nm,1):ND],['Moyenne mensuelle · distance',a.nm?num(t.km/a.nm,1)+' km':ND]);
+  V.push({t:'Activité',rows:act});
+  V.push({t:'Course',rows:[['Allure moyenne',fmtPace(a.run.t,a.run.d)],['Vitesse moyenne',a.run.d>0&&a.run.t>0?num(a.run.d/(a.run.t/60),1)+' km/h':ND]]});
+  if(a.per!=='week'){const w=a.w;V.push({t:'Poids',rows:[['Première pesée',kg(w&&w.first)],['Dernière pesée',kg(w&&w.last)],['Moyenne',kg(w&&w.mean)],
+    ['Variation',w&&w.n>1?sg(w.last-w.first)+num(Math.abs(w.last-w.first),1)+' kg':ND]]})}
+  if(a.per==='year'){
+    V.push({t:'Progression des records',head:['Exercice','Premier mois','Record','Progression'],
+      rows:a.rec.map(r=>[r.ex.n,r.first?`${r.first.v} (${r.first.nm})`:ND,r.best?String(r.best):ND,r.first?dlt(r.best,r.first.v,0,''):ND])});
+    const wm=a.months.filter(o=>o.w);
+    V.push({t:'Poids par mois',head:['Mois','Minimum','Maximum','Moyenne'],rows:wm.length?wm.map(o=>[cap(o.nm),kg(o.w.min),kg(o.w.max),kg(o.w.mean)]):[['Aucune pesée',ND,ND,ND]]});
+    V.push({t:'Totaux de l\'année',rows:[['Distance',num(t.km,1)+' km'],['Répétitions',num(t.reps)],['Gainage',t.pl?fmtDur(t.pl):ND]]})}
+  const p=a.prev;
+  V.push({t:{week:'Par rapport à la semaine précédente',month:'Par rapport au mois précédent',year:'Par rapport à l\'année précédente'}[a.per],
+    head:['Indicateur','Période','Précédente','Évolution'],rows:[['Répétitions',num(t.reps),p?num(p.reps):ND,dlt(t.reps,p&&p.reps,0,'')],
+    ['Distance',num(t.km,1)+' km',p?num(p.km,1)+' km':ND,dlt(t.km,p&&p.km,1,' km')],['Jours actifs',String(t.act),p?String(p.act):ND,dlt(t.act,p&&p.act,0,'')]]});
+  return V}
+const anaHTML=a=>'<h2>Analyses</h2>'+anaView(a).map(x=>`<div class="card pad ana"><div class="sub">${esc(x.t)}</div><table>${x.head?`<tr>${x.head.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>`:''}${x.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`).join('');
+/* PDF : chaque tableau est une section gardée entière sur une page (même pagination que le reste du bilan) */
+function pdfAna(d,sec,a){const L=d.M,R=d.W-d.M;
+  anaView(a).forEach(x=>{const cx=(x.head||x.rows[0]).length===4?[L,L+250,L+370,R]:[L,R];
+    sec('Analyses · '+x.t,20*(x.rows.length+(x.head?1:0)));
+    const row=(r,h)=>{d.need(20);r.forEach((c,i)=>d.text(cx[i],c.replace(/[\u202f\u00a0]/g,' '),h?8:10,{bold:h||i===0,color:h?PC.mut:PC.ink,right:i>0}));d.gap(6);d.line(L,d.y,R,d.y);d.gap(14)};
+    if(x.head)row(x.head,true);x.rows.forEach(r=>row(r,false))})}
 function vBilan(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),P={day:'Jour',week:'Semaine',month:'Mois',year:'Année'};
   const last=DB.meta.lastExport,due=last?(Date.now()-last)>7*864e5:(today0()-START_D)>=7*864e5,pw=st.poids,pDelta=pw.length>1?pw[pw.length-1].v-pw[0].v:null,hasPrev=!!lsGet(SK_PREV),rr=recapRows(s,e),byObj=`<div class="sub">Par objectif</div>${OBJ.map(o=>{const p=st.el?Math.round(st.obj[o]/st.el*100):0;return`<div class="rate"><span class="n">${o}</span><span class="bar"><i style="width:${p}%"></i></span><span class="p">${p} %</span></div>`}).join('')}`;
   let charts;
@@ -656,6 +725,7 @@ function vBilan(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),P={day:'Jour'
   <h2>Musculation</h2><div class="card pad"><table><tr><th>Exercice</th><th>Total</th><th>Séries</th><th>Record</th></tr>${EX.map(x=>`<tr><td>${x.n}</td><td>${num(st.ex[x.id].reps)}</td><td>${st.ex[x.id].sets}</td><td>${st.ex[x.id].best||'–'}</td></tr>`).join('')}</table></div>
   <h2>Course</h2><div class="card pad"><table><tr><td>Distance</td><td>${num(st.run.d,1)} km</td></tr><tr><td>Temps</td><td>${st.run.t?fmtMin(st.run.t):'–'}</td></tr><tr><td>Dénivelé +</td><td>${num(st.run.den)} m</td></tr><tr><td>Allure moyenne</td><td>${fmtPace(st.run.t,st.run.d)}</td></tr></table>${recapTable(rr,['Période','Distance','Temps'],rcRun)}</div>
   <h2>Gainage</h2><div class="card pad"><table><tr><td>Séries</td><td>${st.plank.n}</td></tr><tr><td>Temps total</td><td>${st.plank.t?fmtDur(st.plank.t):'–'}</td></tr><tr><td>Meilleure série</td><td>${st.plank.best?fmtDur(st.plank.best):'–'}</td></tr></table>${recapTable(rr,['Période','Séries · total','Meilleure'],rcPlank)}</div>
+  ${period!=='day'?anaHTML(analyse(period,s,e)):''}
   ${rescued?`<div class="banner warn"><b>Données illisibles détectées.</b> Elles ont été mises de côté sur cet appareil sans être effacées. Importez votre dernière sauvegarde${period==='year'?'':' depuis la vue Année'}.</div>`:''}
   ${saveFailed?`<div class="banner warn"><b>Enregistrement impossible.</b> Le navigateur refuse le stockage (navigation privée ?). Exportez avant de fermer.</div>`:''}
   ${period!=='day'?`<button class="primary" data-a="export" style="margin-top:24px">Exporter · ${PNAME[period]}</button>
@@ -835,6 +905,7 @@ function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),
     d.gap(H+32);
     const sc=[['Première',pw[0].v],['Dernière',pw[pw.length-1].v],['Minimum',mn],['Moyenne',vs.reduce((a,b)=>a+b,0)/vs.length],['Maximum',mx]],cw=(R-L)/5;
     const yy=d.y;sc.forEach((c,i)=>{d.text(L+i*cw,c[0],8,{y:yy,bold:true,color:PC.mut});d.text(L+i*cw,num(c[1],1)+' kg',11,{y:yy-14,bold:true})});d.gap(24)}
+  pdfAna(d,sec,analyse(period,s,e));
   return d.build()}
 /* ---------- Démarrage ---------- */
 let shownToday=+today0();
