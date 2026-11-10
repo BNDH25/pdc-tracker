@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-SLH+n2ERzPiq2mGe8sHNiozTkjgkuYTadQwTjbwZpEU='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-d5Xtf/imKb+GzSOWPmIGymTYQrOddMjCQaPK836ctjE='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -347,8 +347,8 @@ function ask(title,html,okLabel,danger,info){return new Promise(res=>{const m=do
   const end=v=>{m.remove();res(v)};m.addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(b)end(b.dataset.k==='ok');else if(e.target===m)end(false)});document.body.appendChild(m)})}
 function summary(d){const ks=Object.keys(d.days).sort();let sets=0;for(const k of ks){const x=d.days[k];for(const v of Object.values(x.sets||{}))sets+=(v||[]).length}
   const fd=k=>fmtShort.format(fromKey(k));return{n:ks.length,from:ks.length?fd(ks[0]):'–',to:ks.length?fd(ks[ks.length-1]):'–',sets}}
-function cmpTable(nw,label){const a=summary(DB),b=summary(nw);
-  return`<table><tr><th></th><th>Actuelles</th><th>${label}</th></tr><tr><td>Jours</td><td>${a.n}</td><td>${b.n}</td></tr><tr><td>Du</td><td>${a.from}</td><td>${b.from}</td></tr><tr><td>Au</td><td>${a.to}</td><td>${b.to}</td></tr><tr><td>Séries muscu</td><td>${a.sets}</td><td>${b.sets}</td></tr></table>`}
+function cmpTable(nw,label){const a=summary(DB),nn=normDB(nw),b=summary(nn),bad=Object.keys(nw&&nw.days||{}).length-b.n;
+  return`<table><tr><th></th><th>Actuelles</th><th>${label}</th></tr><tr><td>Jours</td><td>${a.n}</td><td>${b.n}</td></tr><tr><td>Du</td><td>${a.from}</td><td>${b.from}</td></tr><tr><td>Au</td><td>${a.to}</td><td>${b.to}</td></tr><tr><td>Séries muscu</td><td>${a.sets}</td><td>${b.sets}</td></tr></table>${bad>0?`<p class="muted">${bad} jour${bad>1?'s':''} invalide${bad>1?'s':''} ignoré${bad>1?'s':''}.</p>`:''}`}
 /* Remplacement des données : copie interne d'abord, sinon on n'écrase rien */
 async function replaceData(nw,msg){const okSnap=await snapPut('avant-restauration'),okLs=!hasData()||lsSet(SK_PREV,JSON.stringify(DB));
   if(!okSnap&&!okLs){toast('Copie de sécurité impossible : rien n\'a été modifié',2800);return}
