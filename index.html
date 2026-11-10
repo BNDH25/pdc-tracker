@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-HSaaBCkfDn3lZbzDQGmXhu5DnGiWHa8/HceJImCU+XY='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-VfiUOpqGYSJK9bSoL1uk0H0MjsvJq6qGmrMvTQiMEv4='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -578,7 +578,7 @@ function getRange(){const d=cur;let s,e;
   else if(period==='month'){s=new Date(d.getFullYear(),d.getMonth(),1);e=new Date(d.getFullYear(),d.getMonth()+1,0)}
   else{s=new Date(d.getFullYear(),0,1);e=new Date(d.getFullYear(),11,31)}if(s<START_D)s=new Date(START_D);return{s,e}}
 function daysBetween(s,e){const a=[];for(let x=new Date(s);x<=e;x=addDays(x,1))a.push(new Date(x));return a}
-function stats(days){const t=today0(),el=days.filter(d=>d<=t&&d>=START_D),st={el:el.length,obj:{},done:0,ex:{},run:{d:0,t:0,den:0,n:0},poids:[],plank:{n:0,t:0,best:0}};
+function stats(days){const t=today0(),el=days.filter(d=>d>=START_D),st={el:el.length,obj:{},done:0,ex:{},run:{d:0,t:0,den:0,n:0},poids:[],plank:{n:0,t:0,best:0}};
   OBJ.forEach(o=>st.obj[o]=0);EX.forEach(e=>st.ex[e.id]={reps:0,sets:0,best:0});
   el.forEach(dt=>{const k=key(dt),d=DB.days[k];OBJ.forEach(o=>{if(isDone(k,o)){st.obj[o]++;st.done++}});if(!d)return;
     EX.forEach(e=>{const s=(d.sets||{})[e.id]||[];st.ex[e.id].reps+=s.reduce((a,b)=>a+b,0);st.ex[e.id].sets+=s.length;st.ex[e.id].best=Math.max(st.ex[e.id].best,...s,0)});
