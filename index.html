@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
 <!-- SÉCURITÉ : seul le script de cette page (empreinte ci-dessous) peut s'exécuter ; aucun site extérieur n'est contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-BBCimD8QDrJ2lcnb+ND6T8+8whMxjwD6TfuxnIjz2K8='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-7Du6SzT9G1+MF9W4aZKx74/wXNdqI3G9kYhXVe+2Cgs='; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <style>
 @font-face{font-family:"Barlow";font-weight:400;font-display:swap;src:url(fonts/barlow-400.woff) format("woff")}
@@ -46,9 +46,15 @@ body.t-chrono header{display:none}
 .mcard .chrono{flex:0 1 260px;display:flex;align-items:center;justify-content:center;font-size:clamp(56px,17vw,80px);padding:0;margin-bottom:0;min-height:130px}
 .mncust{margin-top:14px}.mncust .stp+.stp{margin-top:10px}
 .mcard .primary{margin-top:0}.mcard .ghost{margin-top:0}.mcard .mnp{margin-top:0}.mcard .mncust{margin-top:0}
-/* Fin du minuteur : seule la carte grise alterne doucement avec l'accent, jusqu'au toucher */
-.mcard.alarm{background-image:none;background-color:var(--card);animation:mnal 2s ease-in-out infinite}
-@keyframes mnal{50%{background-color:color-mix(in srgb,var(--a) 62%,var(--card))}}
+/* Fin du minuteur : pulsation « poum, poum » (1 par seconde, attaque rapide, retour doux) du fond de page et de la carte,
+   jusqu'au toucher. Le chrono (well) et la barre d'onglets ne bougent pas : le calque s'arrête au-dessus de la barre. */
+html.mnal body{background:transparent;transition:none}
+#mnpulse{position:fixed;left:0;right:0;top:0;bottom:0;z-index:-1;pointer-events:none;background:#5b21b6;opacity:0;animation:mnpb 1s infinite;
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 40px),transparent);mask-image:linear-gradient(#000 calc(100% - 40px),transparent)}
+@keyframes mnpb{0%{opacity:0;animation-timing-function:cubic-bezier(.2,.8,.3,1)}14%{opacity:.85;animation-timing-function:cubic-bezier(.45,0,.55,1)}100%{opacity:0}}
+.mcard.alarm{background-image:none;background-color:var(--card);animation:mnpc 1s infinite}
+@keyframes mnpc{0%{background-color:var(--card);animation-timing-function:cubic-bezier(.2,.8,.3,1)}14%{background-color:#7c3aed;animation-timing-function:cubic-bezier(.45,0,.55,1)}100%{background-color:var(--card)}}
+@media (prefers-reduced-motion:reduce){#mnpulse{animation:none;opacity:.6}.mcard.alarm{animation:none;background-color:#6d28d9}}
 body.t-bilan{--a:#60a5fa;--a-hi:#bfdbfe;--a-lo:#1d4ed8;--ink:var(--ink-b);--soft:rgba(96,165,250,.14)}
 
 *{box-sizing:border-box;margin:0;padding:0}
@@ -433,20 +439,24 @@ function mnSound(){try{if(!mnAc)return;const t=mnAc.currentTime,mk=(f,t0,dur,vol
   g.gain.setValueAtTime(0,t+t0);g.gain.linearRampToValueAtTime(vol,t+t0+.03);g.gain.exponentialRampToValueAtTime(.0001,t+t0+dur);o.connect(g);g.connect(mnAc.destination);o.start(t+t0);o.stop(t+t0+dur+.02);
   mnOsc.push(o);o.onended=()=>{mnOsc=mnOsc.filter(x=>x!==o)}};
   mk(880,0,.9,.16);mk(1318.5,.18,1.1,.11)}catch(e){}}
-/* Alerte de fin : clignotement de la carte jusqu'au toucher, son ×5 (toutes les 2 s), vibration en boucle, arrêt auto à 10 min */
-let mnAl=null;const MN_SND_N=5,MN_SND_GAP=2000,MN_VIB=[500,300,500],MN_VIB_GAP=2400,MN_AL_MAX=600000;
+/* Alerte de fin : pulsation du fond et de la carte, bip doux toutes les 2 s et vibration en boucle jusqu'au toucher ; arrêt auto à 10 min */
+let mnAl=null;const MN_SND_GAP=2000,MN_VIB=[500,300,500],MN_VIB_GAP=2400,MN_AL_MAX=600000;
 const mnVib=p=>{try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}};
 function mnAlarmStart(){mnAlarmStop();const a={n:0,snd:null,vib:null,max:null};mnAl=a;
-  const ring=()=>{if(mnAl!==a)return;a.n++;mnSound();if(a.n>=MN_SND_N){clearInterval(a.snd);a.snd=null}};
+  const ring=()=>{if(mnAl!==a)return;a.n++;mnSound()};
   ring();a.snd=setInterval(ring,MN_SND_GAP);
   mnVib(MN_VIB);a.vib=setInterval(()=>mnVib(MN_VIB),MN_VIB_GAP);
   a.max=setTimeout(mnAlarmStop,MN_AL_MAX);
   document.addEventListener('pointerdown',mnAlarmStop,true);document.addEventListener('touchstart',mnAlarmStop,true);
-  wakeOn();const c=document.querySelector('.mcard');if(c)c.classList.add('alarm')}
+  wakeOn();const c=document.querySelector('.mcard');if(c)c.classList.add('alarm');
+  let pl=$('mnpulse');if(!pl){pl=document.createElement('div');pl.id='mnpulse';document.body.appendChild(pl)}mnPulseFit();addEventListener('resize',mnPulseFit);document.documentElement.classList.add('mnal')}
+/* Le calque s'arrête 56 px au-dessus de la barre d'onglets (au-delà de la portée de son flou) : la barre reste identique */
+function mnPulseFit(){const pl=$('mnpulse'),tb=document.querySelector('.tabs');if(pl&&tb)pl.style.bottom=Math.max(0,innerHeight-tb.getBoundingClientRect().top+56)+'px'}
 function mnAlarmStop(){if(!mnAl)return;const a=mnAl;mnAl=null;clearInterval(a.snd);clearInterval(a.vib);clearTimeout(a.max);
   document.removeEventListener('pointerdown',mnAlarmStop,true);document.removeEventListener('touchstart',mnAlarmStop,true);
   mnOsc.forEach(o=>{try{o.stop()}catch(e){}});mnOsc=[];mnVib(0);
-  if(mn.st!=='run')wakeOff();const c=document.querySelector('.mcard');if(c)c.classList.remove('alarm')}
+  if(mn.st!=='run')wakeOff();const c=document.querySelector('.mcard');if(c)c.classList.remove('alarm');
+  const pl=$('mnpulse');if(pl)pl.remove();removeEventListener('resize',mnPulseFit);document.documentElement.classList.remove('mnal')}
 function mnDone(silent){clearInterval(mnTimer);mnTimer=null;wakeOff();mn={dur:mn.dur,st:'idle',end:0,left:mn.dur};mnSave();
   if(!silent){mnAlarmStart();toast('Repos terminé',2500,'rec')}
   if(tab==='chrono')render()}
