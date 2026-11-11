@@ -19,3 +19,6 @@ jobs:
       - name: Lancer la verification
         working-directory: depot
         run: bash .github/verif-confidentialite.sh
+      - name: Verifier la structure (fichiers js/css et mode hors ligne)
+        working-directory: depot
+        run: bash .github/verif-structure.sh
