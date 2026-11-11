@@ -30,5 +30,7 @@ Tout fonctionne hors ligne, sans serveur, sans bibliothèque externe : les donn�
 1. Les fichiers `js/` sont des scripts classiques qui partagent la même portée globale : **l'ordre de chargement dans `index.html` compte**. Un fichier ne doit exécuter au chargement que du code défini dans les fichiers précédents ; le lancement de l'app reste dans `js/demarrage.js`, chargé en dernier.
 2. Nouveau fichier `js/` ou `css/` : l'ajouter dans `index.html` **et** dans la liste `LOCAL` de `sw.js`.
 3. À chaque mise à jour : augmenter `VERSION` dans `sw.js`.
-4. Sécurité : aucun script ni attribut `on…=` dans `index.html` (la CSP `script-src 'self'` les bloque) ; aucune ressource extérieure ; toute donnée chargée passe par `normDB()` ; tout texte variable inséré dans le HTML passe par `esc()`.
-5. Avant de pousser : `bash .github/verif-structure.sh` et `bash .github/verif-confidentialite.sh` (lancés aussi automatiquement à chaque push).
+4. Sécurité : aucun script ni attribut `on…=` dans `index.html` (la CSP les bloque) ; aucune ressource extérieure ; toute donnée chargée passe par `normDB()` ; tout texte variable inséré dans le HTML passe par `esc()`.
+5. Adresse : l'app est publiée sur `https://bndh25.github.io/pdc-tracker/` et sa CSP n'autorise que ce dossier. Elle ne se charge donc pas ailleurs (ni en local) sans adapter la CSP de `index.html`.
+   **Ne publier aucun autre projet sur `bndh25.github.io`** (GitHub Pages d'un autre dépôt de ce compte) : il partagerait les données stockées de l'app. Publier les autres projets depuis un autre compte ou une organisation GitHub.
+6. Avant de pousser : `bash .github/verif-structure.sh` et `bash .github/verif-confidentialite.sh` (lancés aussi automatiquement à chaque push).

@@ -12,8 +12,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PDC">
-<!-- SÉCURITÉ : seuls les scripts de l'app elle-même (fichiers js/ du même site) peuvent s'exécuter ; aucun script écrit dans la page, aucun site extérieur contacté. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<!-- SÉCURITÉ : l'app ne charge que ses propres fichiers, dans son dossier https://bndh25.github.io/pdc-tracker/ ;
+     rien d'un autre projet publié sur bndh25.github.io, aucun script écrit dans la page, aucun site extérieur.
+     Si l'adresse de publication change, mettre à jour cette ligne (sinon l'app ne se charge plus). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://bndh25.github.io/pdc-tracker/js/; style-src https://bndh25.github.io/pdc-tracker/css/ 'unsafe-inline'; font-src https://bndh25.github.io/pdc-tracker/fonts/; img-src https://bndh25.github.io/pdc-tracker/; connect-src https://bndh25.github.io/pdc-tracker/; manifest-src https://bndh25.github.io/pdc-tracker/manifest.webmanifest; worker-src https://bndh25.github.io/pdc-tracker/sw.js; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <link rel="stylesheet" href="css/style.css">
 <!-- Reste dans la page : le dégradé #rg de l'anneau est défini plus bas dans ce document. -->
