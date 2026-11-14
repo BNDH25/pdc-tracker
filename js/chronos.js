@@ -1,15 +1,14 @@
-/* PDC Tracker · Chrono de gainage et minuteur de repos (alerte de fin)
+/* PDC Tracker · Chrono de gainage / corde à sauter et minuteur de repos (alerte de fin)
    Script classique (pas un module) : les fichiers js/ partagent la même portée globale
    et sont chargés dans l'ordre fixé dans index.html. */
-/* ---------- Gainage : chrono, correction avant enregistrement ---------- */
+/* ---------- Gainage et corde à sauter : chrono (k = exercice), correction avant enregistrement ---------- */
 const PK_K=SK+'-chrono';
-let pk={st:'idle',t0:0,raw:0,val:0,manual:false},pkTimer=null,wake=null;
-try{const s=JSON.parse(lsGet(PK_K)||'null');if(s&&(s.st==='run'||s.st==='done')&&s.t0>0)pk={st:s.st,t0:s.t0,raw:+s.raw||0,val:+s.val>0?+s.val:0,manual:!!s.manual}}catch(e){}
+let pk={st:'idle',t0:0,raw:0,val:0,manual:false,k:'gainage'},pkTimer=null,wake=null;
+try{const s=JSON.parse(lsGet(PK_K)||'null');if(s&&(s.st==='run'||s.st==='done')&&s.t0>0)pk={st:s.st,t0:s.t0,raw:+s.raw||0,val:+s.val>0?+s.val:0,manual:!!s.manual,k:s.k==='corde'?'corde':'gainage'}}catch(e){}
 const pkSave=()=>{if(pk.st==='idle')lsDel(PK_K);else lsSet(PK_K,JSON.stringify(pk))};
 const fmtDur=s=>{s=Math.max(0,Math.round(s));return`${Math.floor(s/60)}:${pad(s%60)}`};
 const pkElapsed=()=>pk.st==='run'?Math.max(0,(Date.now()-pk.t0)/1000):pk.raw;
-function pkReset(){clearInterval(pkTimer);pkTimer=null;wakeOff();pk={st:'idle',t0:0,raw:0,val:0,manual:false};pkSave()}
-function bestPlank(){let b=0;for(const d of Object.values(DB.days))if(d.planks)for(const v of d.planks)if(v>b)b=v;return b}
+function pkReset(){clearInterval(pkTimer);pkTimer=null;wakeOff();pk={st:'idle',t0:0,raw:0,val:0,manual:false,k:'gainage'};pkSave()}
 async function wakeOn(){try{if(navigator.wakeLock&&!wake){wake=await navigator.wakeLock.request('screen');wake.addEventListener('release',()=>{wake=null})}}catch(e){}}
 function wakeOff(){try{wake&&wake.release()}catch(e){}wake=null}
 function pkTick(){const el=$('pk-time');if(el)el.textContent=fmtDur(pkElapsed())}

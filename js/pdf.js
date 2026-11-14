@@ -48,8 +48,11 @@ const recapH=n=>n?36+n*14:0;
 function pdfRecap(d,rr,heads,fn){if(!rr.length)return;const L=d.M,R=d.W-d.M;d.need(36+2*14);d.gap(4);d.text(L,'Par '+recapUnit(),8,{bold:true,color:PC.mut});d.gap(13);
   const head=()=>{d.text(L,heads[0],8,{bold:true,color:PC.mut});d.text(L+260,heads[1],8,{bold:true,color:PC.mut,right:true});d.text(R,heads[2],8,{bold:true,color:PC.mut,right:true});d.gap(6);d.line(L,d.y,R,d.y);d.gap(13)};head();
   rr.forEach(r=>{const c=fn(r);if(d.need(15))head();d.text(L,c[0],9);d.text(L+260,c[1],9,{right:true});d.text(R,c[2],9,{right:true});d.gap(14)})}
+/* Tableau : en-tête (facultative) puis lignes ; cx = position de chaque colonne (la première à gauche, les autres alignées à droite) */
+function pdfTab(d,cx,head,rows){const L=d.M,R=d.W-d.M,row=(r,h)=>{d.need(20);r.forEach((c,i)=>d.text(cx[i],String(c).replace(/[\u202f\u00a0]/g,' '),h?8:10,{bold:h||i===0,color:h?PC.mut:PC.ink,right:i>0}));d.gap(6);d.line(L,d.y,R,d.y);d.gap(14)};
+  if(head)row(head,true);rows.forEach(r=>row(r,false))}
 function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),L=d.M,R=d.W-d.M,pw=st.poids,
-    pDelta=pw.length>1?pw[pw.length-1].v-pw[0].v:null,sets=EX.reduce((a,x)=>a+st.ex[x.id].sets,0);
+    nr=recapRows(s,e).length;
   /* Mise en page : un titre de section n'est jamais seul en bas de page. Chaque section est gardée entière
      sur une page (h = hauteur de son contenu) ; si elle est plus grande qu'une page, elle commence en haut d'une page. */
   const sec=(t,h)=>{d.need(46+Math.min(h,640));d.gap(18);d.rrect(L,d.y-2,3,13,1.5,PC.acc);d.text(L+11,t.toUpperCase(),10,{bold:true,ls:1.4});d.gap(10);d.line(L,d.y,R,d.y);d.gap(18)};
@@ -60,42 +63,24 @@ function buildPDF(){const{s,e}=getRange(),st=stats(daysBetween(s,e)),d=newPDF(),
   {const rl=rangeLabel(s,e);d.text(L,rl[0].toUpperCase()+rl.slice(1),12,{bold:true,color:PC.acc})}d.gap(16);
   d.text(L,'Généré le '+new Intl.DateTimeFormat('fr-FR',{dateStyle:'long'}).format(new Date()),8,{color:PC.mut,ls:.4});d.gap(40);
   /* Chiffres clés */
-  const kw=(R-L)/4,kp=[['Objectifs',st.pct==null?'–':Math.round(st.pct*100)+' %',st.done+' cochés'],
-    ['Répétitions',num(st.reps),sets+' série'+(sets>1?'s':'')],
-    ['Course',num(st.run.d,1)+' km',st.run.n+' sortie'+(st.run.n>1?'s':'')],
-    ['Poids',pw.length?num(pw[pw.length-1].v,1)+' kg':'–',pDelta==null?'dernière pesée':(pDelta>0?'+':'')+num(pDelta,1)+' kg sur la période']];
+  const kp=kpiList(st);
   d.need(80);const y0=d.y,cg=8,cw=(R-L-3*cg)/4;
   kp.forEach((c,i)=>{const x=L+i*(cw+cg);d.rrect(x,y0-50,cw,64,10,PC.card);d.text(x+11,c[0].toUpperCase(),7,{y:y0,bold:true,ls:1,color:PC.mut});d.text(x+11,c[1],16,{y:y0-21,bold:true});d.text(x+11,c[2].length>24?c[2].replace(' sur la période',''):c[2],7,{y:y0-38,color:PC.mut})});
   d.gap(58);
-  /* Objectifs */
-  sec('Objectifs du pattern',OBJ.length*19);
-  const bx=L+135,bw=R-bx-95;
-  OBJ.forEach(o=>{d.need(18);const p=st.el?st.obj[o]/st.el:0;
-    d.text(L,o,10,{bold:true});d.rrect(bx,d.y-1,bw,8,4,PC.track);if(p>0)d.rrect(bx,d.y-1,Math.max(8,bw*p),8,4,p>=1?PC.ok:PC.acc);
-    d.text(R,Math.round(p*100)+' %',10,{right:true,bold:true});d.text(R-38,st.obj[o]+'/'+st.el,9,{right:true,color:PC.mut});d.gap(19)});
+  /* Régularité */
+  sec('Régularité',20*(OBJ.length+1));pdfTab(d,[L,L+250,L+380,R],['Objectif','Jours','En cours','Record'],regulRows(s,e,st.el));
   {const bk=buckets(s,e),bs=bk.map(b=>stats(b.days));
     sec('Objectifs atteints par '+(period==='year'?'mois':'jour'),114);
     pdfBars(d,bs.map(x=>x.pct==null?0:Math.round(x.pct*100)),bk.map(b=>b.l),80,100)}
   /* Musculation */
-  sec('Musculation',20+EX.length*20);
-  const cx=[L,L+250,L+340,R];
-  d.text(cx[0],'Exercice',8,{bold:true,color:PC.mut});d.text(cx[1],'Total',8,{bold:true,color:PC.mut,right:true});
-  d.text(cx[2],'Séries',8,{bold:true,color:PC.mut,right:true});d.text(cx[3],'Record',8,{bold:true,color:PC.mut,right:true});d.gap(6);d.line(L,d.y,R,d.y);d.gap(14);
-  EX.forEach(x=>{d.need(20);const r=st.ex[x.id];d.text(cx[0],x.n,10,{bold:true});d.text(cx[1],num(r.reps),10,{right:true});
-    d.text(cx[2],String(r.sets),10,{right:true});d.text(cx[3],r.best?r.best+' rép.':'–',10,{right:true});d.gap(6);d.line(L,d.y,R,d.y);d.gap(14)});
+  sec('Musculation',20*(TILES.length+1)+(chAny(st)?recapH(nr):0));
+  pdfTab(d,[L,L+245,L+325,L+405,R],['Exercice','Séries','Total','Moy.','Record'],musRows(st,false));
+  if(chAny(st))pdfRecap(d,recapRows(s,e),['P\u00e9riode',...CH.map(c=>c.n)],rcChrono);
   /* Course */
-  const nr=recapRows(s,e).length;
-  sec('Course à pied',st.run.n?5*16+recapH(nr):16);
+  sec('Course à pied',st.run.n?runRows(st).length*16+recapH(nr):16);
   if(!st.run.n){d.text(L,'Aucune sortie sur la période',10,{color:PC.mut});d.gap(16)}else{
-  [['Sorties',String(st.run.n)],['Distance',num(st.run.d,1)+' km'],['Temps',st.run.t?fmtMin(st.run.t):'–'],['Dénivelé +',num(st.run.den)+' m'],['Allure moyenne',fmtPace(st.run.t,st.run.d)]]
-    .forEach(r=>{d.need(18);d.text(L,r[0],10,{color:PC.mut});d.text(L+130,r[1],10,{bold:true});d.gap(16)});
+  runRows(st).forEach(r=>{d.need(18);d.text(L,r[0],10,{color:PC.mut});d.text(L+130,r[1],10,{bold:true});d.gap(16)});
   pdfRecap(d,recapRows(s,e),['P\u00e9riode','Distance','Temps'],rcRun)}
-  /* Gainage */
-  sec('Gainage',st.plank.n?3*16+recapH(nr):16);
-  if(!st.plank.n){d.text(L,'Aucune série sur la période',10,{color:PC.mut});d.gap(16)}else{
-  [['Séries',String(st.plank.n)],['Temps total',st.plank.t?fmtDur(st.plank.t):'–'],['Meilleure série',st.plank.best?fmtDur(st.plank.best):'–']]
-    .forEach(r=>{d.need(18);d.text(L,r[0],10,{color:PC.mut});d.text(L+130,r[1],10,{bold:true});d.gap(16)});
-  pdfRecap(d,recapRows(s,e),['P\u00e9riode','S\u00e9ries \u00b7 total','Meilleure'],rcPlank)}
   /* Poids */
   sec('Poids',pw.length<2?18:206);
   if(pw.length<2){d.text(L,pw.length?'Une seule pesée sur la période : '+num(pw[0].v,1)+' kg':'Aucune pesée sur la période',10,{color:PC.mut});d.gap(18)}

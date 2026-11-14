@@ -2,7 +2,7 @@
    Changer VERSION à chaque mise à jour de l'app pour forcer le rafraîchissement du cache.
    Tout nouveau fichier js/ ou css/ doit être ajouté à LOCAL (sinon l'app ne marche pas hors ligne).
    SÉCURITÉ : seuls les fichiers de l'app elle-même (même site) sont mis en cache ; rien d'extérieur. */
-const VERSION = 'pdc-v35';
+const VERSION = 'pdc-v36';
 const LOCAL = ['./', 'index.html', 'css/style.css',
   'js/config.js', 'js/dates.js', 'js/stockage.js', 'js/sauvegarde.js', 'js/etat.js', 'js/chronos.js',
   'js/saisie.js', 'js/vues.js', 'js/bilan.js', 'js/actions.js', 'js/pdf.js', 'js/demarrage.js',

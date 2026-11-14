@@ -18,7 +18,13 @@ const actions={
   add(){const v=ST.reps.get();if(!(v>0))return;const prevBest=bestEver(sel),d=getDay(key(cur),true),ex=EX.find(e=>e.id===sel);(d.sets[sel]=d.sets[sel]||[]).push(v);stepVal[sel]=0;syncSport(d);save();render();
     if(prevBest>0&&v>prevBest){toast(`Nouveau record : ${v} rép. (+${v-prevBest})`,3200,'rec');try{navigator.vibrate&&navigator.vibrate([60,50,140])}catch(e){}}
     else toast(`Série de ${v} validée`)},
-  del(b){const d=getDay(key(cur));if(!d)return;d.sets[sel].splice(+b.dataset.i,1);syncSport(d);save();render()},
+  del(b){const d=getDay(key(cur));if(!d)return;serOf(d,sel).splice(+b.dataset.i,1);serEdit=null;syncSport(d);save();render()},
+  serToggle(){serOpen=!serOpen;render()},
+  serMod(b){serEdit={k:key(cur),id:sel,i:+b.dataset.i};serOpen=true;render();const x=$('ser-in');if(x){x.focus();x.select()}},
+  serCancel(){serEdit=null;render()},
+  serSave(){const d=getDay(key(cur)),e=serEdit,x=$('ser-in');if(!d||!e||!x)return;const a=serOf(d,e.id),v=parseSer(x.value,isCH(e.id));
+    if(v==null||e.i>=a.length){toast('Valeur invalide : série inchangée',2200);return}a[e.i]=v;serEdit=null;save();render();toast('Série modifiée')},
+  goPk(){sel=pk.k;render()},
   saveC(){const c=dC();if(!(c.d>0&&c.t>0)){toast('Indiquez une distance et un temps');return}const d=getDay(key(cur),true);d.course={d:c.d,t:c.t,den:c.den};draftC=null;syncSport(d);save();render();toast('Course enregistrée')},
   delC(){const d=getDay(key(cur));if(d){d.course=null;syncSport(d)}draftC=null;save();render()},
   jeun(b){const p=dP();p.jeun=!p.jeun;b.classList.toggle('on',p.jeun)},
@@ -29,14 +35,13 @@ const actions={
   mnStart(){mnAlarmStop();mnUnlock();const rem=mn.st==='pause'?mn.left:mn.dur;mn={dur:mn.dur,st:'run',end:Date.now()+rem*1000,left:rem};mnSave();mnLoop();wakeOn();render()},
   mnPause(){if(mn.st!=='run')return;const rem=mnRem();mn={dur:mn.dur,st:'pause',end:0,left:rem};mnSave();mnLoop();wakeOff();render()},
   mnReset(){mn={dur:mn.dur,st:'idle',end:0,left:mn.dur};mnSave();mnLoop();wakeOff();render()},
-  pkStart(){pk={st:'run',t0:Date.now(),raw:0,val:0,manual:false};pkSave();clearInterval(pkTimer);pkTimer=setInterval(pkTick,250);wakeOn();render()},
-  pkStop(){const s=(Date.now()-pk.t0)/1000;clearInterval(pkTimer);pkTimer=null;wakeOff();pk={st:'done',t0:pk.t0,raw:s,val:Math.max(5,Math.round(s/5)*5),manual:false};pkSave();render()},
-  pkManual(){pk={st:'done',t0:Date.now(),raw:0,val:0,manual:true};pkSave();render()},
-  pkAdd(){const v=pk.val;if(!(v>0))return;const prev=bestPlank(),d=getDay(key(cur),true);(d.planks=d.planks||[]).push(v);syncSport(d);pkReset();save();render();
+  pkStart(){pk={st:'run',t0:Date.now(),raw:0,val:0,manual:false,k:sel};pkSave();clearInterval(pkTimer);pkTimer=setInterval(pkTick,250);wakeOn();render()},
+  pkStop(){const s=(Date.now()-pk.t0)/1000;clearInterval(pkTimer);pkTimer=null;wakeOff();pk={st:'done',t0:pk.t0,raw:s,val:Math.max(5,Math.round(s/5)*5),manual:false,k:pk.k};pkSave();render()},
+  pkManual(){pk={st:'done',t0:Date.now(),raw:0,val:0,manual:true,k:sel};pkSave();render()},
+  pkAdd(){const v=pk.val;if(!(v>0))return;const id=pk.k,prev=bestEver(id),d=getDay(key(cur),true);serW(d,id).push(v);syncSport(d);pkReset();save();render();
     if(prev>0&&v>prev){toast(`Nouveau record : ${fmtDur(v)} (+${v-prev} s)`,3200,'rec');try{navigator.vibrate&&navigator.vibrate([60,50,140])}catch(e){}}
     else toast(`Série de ${fmtDur(v)} validée`)},
   pkCancel(){if(!confirmArm('pkc','Abandonner ce temps ? Touchez à nouveau'))return;pkReset();render()},
-  pkDel(b){const d=getDay(key(cur));if(!d||!d.planks)return;d.planks.splice(+b.dataset.i,1);syncSport(d);save();render()},
   per(b){period=b.dataset.id;render()},
   export:doExport,
   save:doSave,
@@ -50,6 +55,11 @@ const actions={
   undoImport(){if(!confirmArm('undo','Revenir aux données d\'avant l\'import ? Touchez à nouveau'))return;
     try{const d=JSON.parse(lsGet(SK_PREV));if(!isDB(d))throw 0;DB=normDB({days:d.days,meta:d.meta||{}});lsDel(SK_PREV);resetDrafts();save();render();toast('Restauration annulée')}catch(e){toast('Copie précédente illisible')}}
 };
+/* Valeur saisie pour une série : entier de répétitions, ou durée en secondes / « m:ss » ; null si invalide */
+function parseSer(raw,timed){const t=String(raw).trim();let v;
+  if(timed&&/^\d+:\d{1,2}$/.test(t)){const[m,q]=t.split(':');v=+m*60+ +q}else if(/^\d+$/.test(t))v=+t;else return null;
+  return numIn(v,1,timed?86400:9999)}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='ser-in'){e.preventDefault();actions.serSave()}});
 function resetDrafts(){draftC=draftP=null;stepVal={}}
 document.addEventListener('click',ev=>{const b=ev.target.closest('[data-a]');if(b&&actions[b.dataset.a])actions[b.dataset.a](b)});
 $('importFile').addEventListener('change',async ev=>{const f=ev.target.files[0];ev.target.value='';if(!f)return;

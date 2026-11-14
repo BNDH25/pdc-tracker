@@ -1,6 +1,6 @@
 # PDC Tracker
 
-App web (PWA) de suivi quotidien : objectifs du « pattern », musculation, gainage, course, poids, minuteur de repos et bilans.
+App web (PWA) de suivi quotidien : objectifs du « pattern », musculation, gainage, corde à sauter, course, poids, minuteur de repos et bilans.
 Tout fonctionne hors ligne, sans serveur, sans bibliothèque externe : les données restent sur le téléphone (stockage local + copies internes).
 
 ## Plan des fichiers
@@ -9,14 +9,14 @@ Tout fonctionne hors ligne, sans serveur, sans bibliothèque externe : les donn�
 |---|---|
 | `index.html` | Coquille de la page : en-tête, onglets, politique de sécurité (CSP), ordre de chargement des scripts |
 | `css/style.css` | Tous les styles (thèmes clair/sombre, composants, bilan, barre d'onglets) |
-| `js/config.js` | Anti-cadre, liste des objectifs (`OBJ`), exercices (`EX`), date de départ (`START`), clés de stockage, `esc()` |
+| `js/config.js` | Anti-cadre, liste des objectifs (`OBJ`), exercices (`EX`), exercices chronométrés (`CH`), carrés PDC (`TILES`), date de départ (`START`), clés de stockage, `esc()` |
 | `js/dates.js` | Dates et formats : `key()`, `fromKey()`, `addDays()`, `today0()`, `fmtPace()`, `fmtMin()` |
 | `js/stockage.js` | Lecture/écriture locale protégée : `load()`, `normDB()` (contrôle champ par champ), `save()`, `getDay()`, `syncSport()` |
 | `js/sauvegarde.js` | Copies internes IndexedDB (`snapPut`), export JSON + PDF (`doExport`), restauration (`checkBackup`, `replaceData`), fenêtre `ask()` |
-| `js/etat.js` | État de l'écran (`cur`, `tab`, `period`…) et logique : `streak()`, `bestEver()` |
-| `js/chronos.js` | Chrono de gainage (`pk…`) et minuteur de repos (`mn…`, alerte de fin, son, vibration), écran `vMinuteur()` |
+| `js/etat.js` | État de l'écran (`cur`, `tab`, `period`…) et logique : `streak()`, `serOf()` / `serW()` (séries d'un exercice), `bestEver()` |
+| `js/chronos.js` | Chrono de gainage et de corde à sauter (`pk…`) et minuteur de repos (`mn…`, alerte de fin, son, vibration), écran `vMinuteur()` |
 | `js/saisie.js` | Brouillons course/poids (`dC`, `dP`), steppers `ST` / `stepper()` / `bump()` avec appui long |
-| `js/vues.js` | Rendu : `render()`, `vObj()` (Pattern), `vSport()` → `vMuscu()`, `vGainage()`, `vCourse()`, `vPoids()` |
+| `js/vues.js` | Rendu : `render()`, `vObj()` (Pattern), `vSport()` → `vMuscu()` (6 carrés, saisie, détail des séries), `vCourse()`, `vPoids()` |
 | `js/bilan.js` | Bilan : `stats()`, graphiques `bars()` / `wChart()`, récapitulatifs, analyses `analyse()` / `anaView()`, `vBilan()` |
 | `js/actions.js` | Toutes les actions des boutons (`actions` via `data-a`), import d'un fichier de sauvegarde |
 | `js/pdf.js` | Générateur PDF intégré : `newPDF()`, `buildPDF()` |
